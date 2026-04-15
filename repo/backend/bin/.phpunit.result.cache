@@ -1,0 +1,1 @@
+{"version":2,"defects":{"App\\Tests\\Api\\Coverage\\RegionDetailCoverageTest::testShowRegionReturns200":8,"App\\Tests\\Api\\Coverage\\RegionDetailCoverageTest::testUpdateRegionReturns200":8,"App\\Tests\\Api\\Coverage\\RegionDetailCoverageTest::testRegionVersionsReturns200":8},"times":[]}

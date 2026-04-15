@@ -1,0 +1,54 @@
+import { type Page } from '@playwright/test';
+
+/**
+ * Seeded admin credentials from app:seed:demo.
+ * Always present in a fresh Docker environment after the entrypoint runs.
+ */
+export const ADMIN = { username: 'admin', password: 'Demo#Password1!' };
+export const MGR_NORTH = { username: 'mgr_north', password: 'Demo#Password1!' };
+export const ANALYST = { username: 'analyst1', password: 'Demo#Password1!' };
+
+/**
+ * Log in via the UI login form and wait for redirect to the dashboard.
+ */
+export async function loginAs(
+  page: Page,
+  credentials: { username: string; password: string },
+): Promise<void> {
+  await page.goto('/login');
+  await page.fill('#username', credentials.username);
+  await page.fill('#password', credentials.password);
+  await page.click('button[type="submit"]');
+  // Wait until navigated away from login page
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
+}
+
+/**
+ * Log in via the API directly and inject the token into localStorage,
+ * bypassing the UI — useful for setting up test state quickly.
+ */
+export async function loginViaApi(
+  page: Page,
+  credentials: { username: string; password: string },
+): Promise<string> {
+  const response = await page.request.post('/api/v1/auth/login', {
+    data: { username: credentials.username, password: credentials.password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const body = await response.json();
+  const token: string = body.data.token;
+  const user = body.data.user;
+
+  // Inject into Zustand persist store that the frontend reads
+  await page.goto('/login');
+  await page.evaluate(
+    ({ token, user }) => {
+      localStorage.setItem(
+        'meridian-auth',
+        JSON.stringify({ state: { token, user, roles: user.roles, isAuthenticated: true }, version: 0 }),
+      );
+    },
+    { token, user },
+  );
+  return token;
+}

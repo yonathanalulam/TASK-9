@@ -1,0 +1,37 @@
+parameters:
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            string $projectDir: '%kernel.project_dir%'
+            string $exportDir: '%kernel.project_dir%/var/exports'
+            string $masterKey: '%env(ENCRYPTION_MASTER_KEY)%'
+            string $databaseUrl: '%env(DATABASE_URL)%'
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # Manually register all repositories since Doctrine 3.x ServiceEntityRepository
+    # auto-registration is not working with this version combination
+    App\Repository\:
+        resource: '../src/Repository/*Repository.php'
+        autoconfigure: false
+        autowire: true
+        tags: ['doctrine.repository_service']
+
+    App\Repository\Warehouse\:
+        resource: '../src/Repository/Warehouse/*Repository.php'
+        autoconfigure: false
+        autowire: true
+        tags: ['doctrine.repository_service']
+
+    App\Repository\Scraping\:
+        resource: '../src/Repository/Scraping/*Repository.php'
+        autoconfigure: false
+        autowire: true
+        tags: ['doctrine.repository_service']
