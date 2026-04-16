@@ -11,6 +11,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: AuditEventRepository::class)]
 #[ORM\Table(name: 'audit_events')]
+#[ORM\ChangeTrackingPolicy('DEFERRED_EXPLICIT')]
 #[ORM\Index(columns: ['entity_type', 'entity_id'], name: 'idx_audit_events_entity')]
 #[ORM\Index(columns: ['actor_id'], name: 'idx_audit_events_actor_id')]
 #[ORM\Index(columns: ['occurred_at'], name: 'idx_audit_events_occurred_at')]

@@ -288,7 +288,8 @@ final class ScopedAccessTest extends WebTestCase
 
     private function createRegion(string $codePrefix): string
     {
-        $code = $codePrefix . (++self::$seq);
+        // MdmRegion.code is VARCHAR(5) — keep it short
+        $code = substr($codePrefix, 0, 3) . chr(65 + (++self::$seq % 26));
         $region = new MdmRegion();
         $region->setCode($code);
         $region->setName('Scope Test Region ' . $code);

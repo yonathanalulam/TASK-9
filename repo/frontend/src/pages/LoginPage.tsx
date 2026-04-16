@@ -26,9 +26,15 @@ export default function LoginPage() {
     try {
       await login(data.username, data.password);
     } catch (err: unknown) {
+      const raw =
+        (err as { response?: { data?: { error?: { message?: string } | string } } })?.response
+          ?.data?.error;
       const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Login failed. Please check your credentials.';
+        typeof raw === 'string'
+          ? raw
+          : typeof raw === 'object' && raw !== null && typeof raw.message === 'string'
+            ? raw.message
+            : 'Login failed. Please check your credentials.';
       setServerError(msg);
     }
   };

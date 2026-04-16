@@ -9,6 +9,13 @@ export const MGR_NORTH = { username: 'mgr_north', password: 'Demo#Password1!' };
 export const ANALYST = { username: 'analyst1', password: 'Demo#Password1!' };
 
 /**
+ * Return Bearer token header object for use with page.request.* calls.
+ */
+export function authHeader(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+/**
  * Log in via the UI login form and wait for redirect to the dashboard.
  */
 export async function loginAs(
@@ -26,6 +33,9 @@ export async function loginAs(
 /**
  * Log in via the API directly and inject the token into localStorage,
  * bypassing the UI — useful for setting up test state quickly.
+ *
+ * Returns the Bearer token so callers can pass it to page.request.*
+ * calls via authHeader(token).
  */
 export async function loginViaApi(
   page: Page,

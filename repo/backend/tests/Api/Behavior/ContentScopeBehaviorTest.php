@@ -275,6 +275,21 @@ final class ContentScopeBehaviorTest extends WebTestCase
         return $region->getId()->toRfc4122();
     }
 
+    /**
+     * Returns the binary (16-byte) form of the region ID for scope_id storage.
+     */
+    private function createRegionBinary(): string
+    {
+        $region = new MdmRegion();
+        $region->setCode('CSR' . (++self::$seq));
+        $region->setName('ContentScope Region ' . self::$seq);
+        $region->setEffectiveFrom(new \DateTimeImmutable('-30 days'));
+        $region->setIsActive(true);
+        $this->em->persist($region);
+        $this->em->flush();
+        return $region->getId()->toBinary();
+    }
+
     private function createStore(): string
     {
         $regionId = $this->createRegion();
@@ -291,6 +306,28 @@ final class ContentScopeBehaviorTest extends WebTestCase
         $this->em->persist($store);
         $this->em->flush();
         return $store->getId()->toRfc4122();
+    }
+
+    /**
+     * Returns both the RFC4122 ID (for API calls) and binary ID (for scope_id).
+     * @return array{rfc: string, binary: string}
+     */
+    private function createStoreWithBinary(): array
+    {
+        $regionId = $this->createRegion();
+        $region = $this->em->getRepository(MdmRegion::class)->find($regionId);
+
+        $store = new Store();
+        $store->setCode('CSS' . (++self::$seq));
+        $store->setName('ContentScope Store ' . self::$seq);
+        $store->setStoreType(StoreType::STORE);
+        $store->setRegion($region);
+        $store->setStatus('ACTIVE');
+        $store->setTimezone('UTC');
+        $store->setIsActive(true);
+        $this->em->persist($store);
+        $this->em->flush();
+        return ['rfc' => $store->getId()->toRfc4122(), 'binary' => $store->getId()->toBinary()];
     }
 
     private function loginAsRole(RoleName $roleName, ScopeType $scopeType = ScopeType::GLOBAL): string

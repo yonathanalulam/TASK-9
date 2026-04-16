@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN, loginViaApi } from './helpers/auth';
+import { ADMIN, loginViaApi, authHeader } from './helpers/auth';
 
 /**
  * E2E — Content create journey (real UI form).
@@ -12,8 +12,10 @@ import { ADMIN, loginViaApi } from './helpers/auth';
  */
 
 test.describe('Content Create (UI form journey)', () => {
+  let token: string;
+
   test.beforeEach(async ({ page }) => {
-    await loginViaApi(page, ADMIN);
+    token = await loginViaApi(page, ADMIN);
   });
 
   test('F1: content create form renders all required fields', async ({ page }) => {
@@ -91,7 +93,9 @@ test.describe('Content Create (UI form journey)', () => {
     const contentId = body.data.id;
 
     // Verify the content is retrievable from the backend independently of the UI state
-    const getResp = await page.request.get(`/api/v1/content/${contentId}`);
+    const getResp = await page.request.get(`/api/v1/content/${contentId}`, {
+      headers: authHeader(token),
+    });
     expect(getResp.status()).toBe(200);
     const getBody = await getResp.json();
     expect(getBody.data.title).toBe(uniqueTitle);

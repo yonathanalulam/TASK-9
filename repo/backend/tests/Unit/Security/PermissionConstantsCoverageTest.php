@@ -81,11 +81,11 @@ final class PermissionConstantsCoverageTest extends TestCase
      */
     public function testNoVoterDefinesPublicPermissionConstants(): void
     {
-        $voterDir = __DIR__ . '/../../src/Security/Voter';
+        $voterDir = __DIR__ . '/../../../src/Security/Voter';
 
         // Fallback: compute from project root if the relative path does not exist.
         if (!is_dir($voterDir)) {
-            $voterDir = dirname(__DIR__, 2) . '/src/Security/Voter';
+            $voterDir = dirname(__DIR__, 3) . '/src/Security/Voter';
         }
 
         if (!is_dir($voterDir)) {

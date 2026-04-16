@@ -190,7 +190,7 @@ class DeliveryZoneService
     {
         $qb = $this->zoneRepository->createQueryBuilder('z')
             ->andWhere('z.store = :storeId')
-            ->setParameter('storeId', $storeId);
+            ->setParameter('storeId', \Symfony\Component\Uid\Uuid::fromString($storeId)->toBinary());
 
         $countQb = clone $qb;
         $total = (int) $countQb->select('COUNT(z.id)')->getQuery()->getSingleScalarResult();

@@ -78,7 +78,7 @@ services:
       - meridian
     profiles:
       - e2e
-    command: ["sh", "-c", "npm install --silent 2>/dev/null && npx playwright install chromium --with-deps 2>&1 && npx playwright test --config=playwright.config.ts --reporter=list"]
+    command: ["sh", "-c", "npm install --silent 2>/dev/null && npx playwright install chromium 2>&1 && npx playwright test --config=playwright.config.ts --reporter=list"]
 
   worker:
     build:

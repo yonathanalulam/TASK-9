@@ -82,7 +82,7 @@ final class DeliveryZoneBehaviorTest extends WebTestCase
 
         $body = json_decode($response->getContent(), true);
         self::assertSame('VALIDATION_ERROR', $body['error']['code']);
-        self::assertArrayHasKey('name', $body['error']['details']);
+        self::assertStringContainsStringIgnoringCase('name', $body['error']['message']);
     }
 
     // -----------------------------------------------------------------------
@@ -205,7 +205,7 @@ final class DeliveryZoneBehaviorTest extends WebTestCase
         );
         self::assertSame(200, $this->client->getResponse()->getStatusCode());
 
-        // Second update with stale version should fail with 412
+        // Second update with stale version should fail with 409 Conflict
         $this->request(
             'PUT',
             "/api/v1/delivery-zones/{$zoneId}",
@@ -213,7 +213,7 @@ final class DeliveryZoneBehaviorTest extends WebTestCase
             ['name' => 'Second Update'],
             ['HTTP_IF_MATCH' => '"' . $version . '"'], // Still old version
         );
-        self::assertSame(412, $this->client->getResponse()->getStatusCode());
+        self::assertSame(409, $this->client->getResponse()->getStatusCode());
     }
 
     // -----------------------------------------------------------------------

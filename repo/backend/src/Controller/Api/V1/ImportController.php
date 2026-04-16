@@ -135,8 +135,8 @@ class ImportController extends AbstractController
         $qb = $this->entityManager->createQueryBuilder()
             ->select('i')
             ->from(ImportItem::class, 'i')
-            ->where('i.importBatch = :batch')
-            ->setParameter('batch', $batch)
+            ->where('i.importBatch = :batchId')
+            ->setParameter('batchId', $batch->getId(), 'uuid')
             ->orderBy('i.createdAt', 'ASC');
 
         if ($status !== null && $status !== '') {

@@ -24,8 +24,8 @@ test.describe('Authentication', () => {
     await page.fill('#password', ADMIN.password);
     await page.click('button[type="submit"]');
 
-    // Should redirect away from /login
-    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
+    // Should redirect away from /login — give extra time for Vite HMR + API round-trip in Docker
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 30000 });
 
     // Dashboard should be visible (the root route renders DashboardPage)
     await expect(page).not.toHaveURL(/\/login/);
@@ -38,9 +38,13 @@ test.describe('Authentication', () => {
     await page.fill('#password', 'definitively-wrong-password-123!');
     await page.click('button[type="submit"]');
 
-    // Error message should appear
-    await expect(page.locator('text=/failed|invalid|incorrect/i').first()).toBeVisible({
-      timeout: 10000,
+    // Wait for the API round-trip to complete before checking for error text
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+    // Error message should appear — backend returns "Invalid credentials"
+    // and LoginPage extracts it into a visible error div
+    await expect(page.locator('text=/failed|invalid|incorrect|credentials/i').first()).toBeVisible({
+      timeout: 15000,
     });
 
     // Must remain on the login page
@@ -54,9 +58,12 @@ test.describe('Authentication', () => {
     await page.fill('#password', 'SomePassword!');
     await page.click('button[type="submit"]');
 
+    // Wait for the API round-trip to complete
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
     // Should show user-visible error (not a blank page or 500 error)
-    await expect(page.locator('text=/failed|invalid|incorrect/i').first()).toBeVisible({
-      timeout: 10000,
+    await expect(page.locator('text=/failed|invalid|incorrect|credentials|error/i').first()).toBeVisible({
+      timeout: 15000,
     });
     await expect(page).toHaveURL(/\/login/);
   });

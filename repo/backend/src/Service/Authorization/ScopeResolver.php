@@ -32,8 +32,8 @@ class ScopeResolver
     {
         $assignments = $this->rbacService->getEffectiveAssignments($user);
 
-        $storeIdBinary = $store->getId()->toBinary();
-        $regionIdBinary = $store->getRegion()->getId()->toBinary();
+        $storeIdBinary = $store->getId()->toRfc4122();
+        $regionIdBinary = $store->getRegion()->getId()->toRfc4122();
 
         foreach ($assignments as $assignment) {
             if ($assignment->getScopeType() === ScopeType::GLOBAL) {
@@ -69,7 +69,7 @@ class ScopeResolver
     {
         $assignments = $this->rbacService->getEffectiveAssignments($user);
 
-        $regionIdBinary = $region->getId()->toBinary();
+        $regionIdBinary = $region->getId()->toRfc4122();
 
         foreach ($assignments as $assignment) {
             if ($assignment->getScopeType() === ScopeType::GLOBAL) {
@@ -116,7 +116,7 @@ class ScopeResolver
             }
 
             if ($assignment->getScopeType() === ScopeType::STORE && $assignment->getScopeId() !== null) {
-                $storeIds[] = Uuid::fromBinary($assignment->getScopeId());
+                $storeIds[] = Uuid::fromString($assignment->getScopeId());
             }
 
             if ($assignment->getScopeType() === ScopeType::REGION && $assignment->getScopeId() !== null) {
@@ -129,7 +129,7 @@ class ScopeResolver
 
         if ($regionIdsBinary !== []) {
             $regionUuids = array_map(
-                static fn (string $bin): Uuid => Uuid::fromBinary($bin),
+                static fn (string $id): Uuid => Uuid::fromString($id),
                 $regionIdsBinary,
             );
 
@@ -179,12 +179,12 @@ class ScopeResolver
             }
 
             if ($assignment->getScopeType() === ScopeType::REGION && $assignment->getScopeId() !== null) {
-                $regionIds[] = Uuid::fromBinary($assignment->getScopeId());
+                $regionIds[] = Uuid::fromString($assignment->getScopeId());
             }
 
             // STORE-scoped users get the region their store belongs to.
             if ($assignment->getScopeType() === ScopeType::STORE && $assignment->getScopeId() !== null) {
-                $storeUuid = Uuid::fromBinary($assignment->getScopeId());
+                $storeUuid = Uuid::fromString($assignment->getScopeId());
                 $store = $this->entityManager->getRepository(\App\Entity\Store::class)->find($storeUuid);
                 if ($store !== null) {
                     $regionIds[] = $store->getRegion()->getId();

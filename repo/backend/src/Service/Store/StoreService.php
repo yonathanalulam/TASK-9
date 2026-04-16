@@ -269,8 +269,15 @@ class StoreService
             if (\count($accessibleStoreIds) === 0) {
                 return ['items' => [], 'total' => 0];
             }
+            // Convert RFC4122 strings to 16-byte binary for BINARY(16) column comparison.
+            // Doctrine's array parameter binding doesn't apply the uuid type converter,
+            // so we must pass raw binary values that match the column storage format.
+            $binaryIds = array_map(
+                static fn (string $id) => \Symfony\Component\Uid\Uuid::fromString($id)->toBinary(),
+                $accessibleStoreIds,
+            );
             $qb->andWhere('s.id IN (:accessibleIds)')
-                ->setParameter('accessibleIds', $accessibleStoreIds);
+                ->setParameter('accessibleIds', $binaryIds);
         }
 
         $countQb = clone $qb;

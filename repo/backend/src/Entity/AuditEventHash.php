@@ -11,6 +11,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: AuditEventHashRepository::class)]
 #[ORM\Table(name: 'audit_event_hashes')]
+#[ORM\ChangeTrackingPolicy('DEFERRED_EXPLICIT')]
 #[ORM\UniqueConstraint(name: 'uq_audit_event_hash_event', columns: ['audit_event_id'])]
 #[ORM\UniqueConstraint(name: 'uq_audit_event_hash_sequence', columns: ['sequence_number'])]
 class AuditEventHash

@@ -85,7 +85,8 @@ final class RbacServiceTest extends KernelTestCase
         $grantor = $this->createTestUser('rbac_grantor_5');
         $role = $this->createRole(RoleName::STORE_MANAGER);
 
-        $regionScopeId = hex2bin('0192e4a0b6d07e9b8e3f0a1b2c3d4e5f');
+        // scope_id is now VARCHAR(36) — use RFC4122 UUID string format, not binary.
+        $regionScopeId = '0192e4a0-b6d0-7e9b-8e3f-0a1b2c3d4e5f';
         $this->createAssignment($user, $role, ScopeType::REGION, $regionScopeId, $grantor);
 
         self::assertTrue(
@@ -93,7 +94,7 @@ final class RbacServiceTest extends KernelTestCase
         );
 
         // A different region ID should not match.
-        $otherRegionId = hex2bin('0192e4a0b6d07e9b8e3f0a1b2c3d4e60');
+        $otherRegionId = '0192e4a0-b6d0-7e9b-8e3f-0a1b2c3d4e60';
         self::assertFalse(
             $this->rbacService->hasRole($user, RoleName::STORE_MANAGER, ScopeType::REGION, $otherRegionId),
         );

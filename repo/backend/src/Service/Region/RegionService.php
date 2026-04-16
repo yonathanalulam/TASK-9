@@ -315,7 +315,11 @@ class RegionService
             if (\count($accessibleRegionIds) === 0) {
                 return ['items' => [], 'total' => 0];
             }
-            $qb->andWhere('r.id IN (:regionIds)')->setParameter('regionIds', $accessibleRegionIds);
+            $regionBinIds = array_map(
+                static fn (string $id) => \Symfony\Component\Uid\Uuid::fromString($id)->toBinary(),
+                $accessibleRegionIds,
+            );
+            $qb->andWhere('r.id IN (:regionIds)')->setParameter('regionIds', $regionBinIds);
         }
 
         $countQb = clone $qb;

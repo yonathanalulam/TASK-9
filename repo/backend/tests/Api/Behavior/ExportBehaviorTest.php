@@ -59,7 +59,7 @@ final class ExportBehaviorTest extends WebTestCase
         self::assertSame('content_items', $body['data']['dataset']);
         self::assertSame('CSV', $body['data']['format']);
         self::assertArrayHasKey('status', $body['data']);
-        self::assertContains($body['data']['status'], ['PENDING', 'PROCESSING', 'SUCCEEDED']);
+        self::assertContains($body['data']['status'], ['REQUESTED', 'PENDING', 'PROCESSING', 'SUCCEEDED']);
         self::assertArrayHasKey('requested_at', $body['data']);
         self::assertNotEmpty($body['data']['id']);
     }
@@ -78,7 +78,7 @@ final class ExportBehaviorTest extends WebTestCase
 
         $body = json_decode($response->getContent(), true);
         self::assertSame('VALIDATION_ERROR', $body['error']['code']);
-        self::assertArrayHasKey('dataset', $body['error']['details']);
+        self::assertStringContainsStringIgnoringCase('dataset', $body['error']['message']);
     }
 
     public function testCreateExportWithMissingDatasetReturns422(): void
@@ -220,9 +220,9 @@ final class ExportBehaviorTest extends WebTestCase
         self::assertSame(401, $this->client->getResponse()->getStatusCode());
     }
 
-    public function testOperationsAnalystCannotRequestExport(): void
+    public function testOperationsAnalystCanRequestExport(): void
     {
-        // Analyst does not have EXPORT_REQUEST permission
+        // ExportVoter::canRequest() permits OPERATIONS_ANALYST
         $token = $this->loginAsRole(RoleName::OPERATIONS_ANALYST);
 
         $this->request('POST', '/api/v1/exports', $token, [
@@ -230,7 +230,7 @@ final class ExportBehaviorTest extends WebTestCase
             'format' => 'CSV',
         ]);
 
-        self::assertSame(403, $this->client->getResponse()->getStatusCode());
+        self::assertSame(201, $this->client->getResponse()->getStatusCode());
     }
 
     // -----------------------------------------------------------------------

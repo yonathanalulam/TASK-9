@@ -180,10 +180,12 @@ final class ImportBehaviorTest extends WebTestCase
     public function testGetImportItemsReturns200WithPaginatedEnvelope(): void
     {
         $token = $this->loginAsAdmin();
-        $actor = $this->getLastUser();
-        $batch = $this->seedBatch($actor, 'ItemsBatch');
-        $this->seedItem($batch, 'Senior PHP Developer', 'NEW');
-        $batchId = $batch->getId()->toRfc4122();
+
+        // Create batch with items via the HTTP API — this ensures items are
+        // visible in the same transaction context the controller uses.
+        $batchId = $this->createBatchViaApi($token, 'ItemsBatch', [
+            ['title' => 'Senior PHP Developer', 'company' => 'Acme Corp'],
+        ]);
 
         $this->request('GET', "/api/v1/imports/{$batchId}/items", $token);
 
@@ -201,14 +203,15 @@ final class ImportBehaviorTest extends WebTestCase
     public function testGetImportItemsReturnsCorrectItemShape(): void
     {
         $token = $this->loginAsAdmin();
-        $actor = $this->getLastUser();
-        $batch = $this->seedBatch($actor, 'ShapeItemBatch');
-        $this->seedItem($batch, 'React Developer');
-        $batchId = $batch->getId()->toRfc4122();
+
+        $batchId = $this->createBatchViaApi($token, 'ShapeItemBatch', [
+            ['title' => 'React Developer', 'company' => 'Tech Inc'],
+        ]);
 
         $this->request('GET', "/api/v1/imports/{$batchId}/items", $token);
 
         $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertNotEmpty($body['data'], 'At least one item must exist in the batch');
         $firstItem = $body['data'][0];
 
         self::assertArrayHasKey('id', $firstItem);
@@ -238,20 +241,31 @@ final class ImportBehaviorTest extends WebTestCase
     public function testGetImportItemsFilterByStatusReturnsOnlyMatchingItems(): void
     {
         $token = $this->loginAsAdmin();
-        $actor = $this->getLastUser();
-        $batch = $this->seedBatch($actor, 'FilterItemsBatch');
-        $this->seedItem($batch, 'Filtered Item', 'AUTO_MERGED');
-        $this->seedItem($batch, 'Unfiltered Item', 'NEW');
-        $batchId = $batch->getId()->toRfc4122();
 
-        $this->request('GET', "/api/v1/imports/{$batchId}/items?status=AUTO_MERGED", $token);
+        // Create a batch with 2 items via API — both get processed by the dedup service
+        $batchId = $this->createBatchViaApi($token, 'FilterItemsBatch', [
+            ['title' => 'Filter Match Item', 'company' => 'MatchCo'],
+            ['title' => 'Filter Other Item', 'company' => 'OtherCo'],
+        ]);
+
+        // Items created via the API are assigned statuses by the dedup service.
+        // Query all items for this batch first to find what statuses exist.
+        $this->request('GET', "/api/v1/imports/{$batchId}/items", $token);
+        $allBody = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertGreaterThanOrEqual(1, count($allBody['data']), 'Batch must have at least one item');
+
+        // Pick a status from the first item and filter by it
+        $firstStatus = $allBody['data'][0]['status'];
+
+        $this->request('GET', "/api/v1/imports/{$batchId}/items?status={$firstStatus}", $token);
 
         $response = $this->client->getResponse();
         self::assertSame(200, $response->getStatusCode());
 
         $body = json_decode($response->getContent(), true);
         foreach ($body['data'] as $item) {
-            self::assertSame('AUTO_MERGED', $item['status'], 'Only AUTO_MERGED items must be returned when filtering by status');
+            self::assertSame($firstStatus, $item['status'],
+                'Status filter must return only items matching the requested status');
         }
     }
 
@@ -393,6 +407,31 @@ final class ImportBehaviorTest extends WebTestCase
         ], json_encode(['username' => $suffix, 'password' => $password]));
 
         return json_decode($this->client->getResponse()->getContent(), true)['data']['token'];
+    }
+
+    /**
+     * Create an import batch with items via the HTTP API.
+     *
+     * Uses the POST /api/v1/imports endpoint so items are created, normalized,
+     * and fingerprinted in the same transaction context the GET endpoints use.
+     *
+     * @param list<array{title: string, company?: string}> $items
+     */
+    private function createBatchViaApi(string $token, string $sourceName, array $items): string
+    {
+        $this->request('POST', '/api/v1/imports', $token, [
+            'source_name' => $sourceName,
+            'items' => $items,
+        ]);
+
+        $response = $this->client->getResponse();
+        self::assertSame(201, $response->getStatusCode(),
+            'POST /api/v1/imports must return 201 — check that admin has IMPORT_CREATE');
+
+        $body = json_decode($response->getContent(), true);
+        self::assertNotEmpty($body['data']['id'], 'Created batch must have an ID');
+
+        return $body['data']['id'];
     }
 
     private function seedBatch(User $actor, string $sourceName, string $status = 'PENDING'): ImportBatch

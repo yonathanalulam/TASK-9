@@ -1,24 +1,32 @@
-# Combined Audit Report (Strict Static Inspection)
+# Combined Audit Report (Rerun, Static-Only)
+
+Date: 2026-04-16
+Scope: full rerun of Test Coverage + README audits using static inspection only.
 
 ## 1) Test Coverage Audit
 
 ### Backend Endpoint Inventory
 
-Detected from Symfony route attributes in `backend/src/Controller/Api/V1/*.php`.
+Source of truth: route attributes in `backend/src/Controller/Api/V1/*.php`.
 
-Total endpoints (unique METHOD + resolved PATH): **98**
+- Total unique backend endpoints (`METHOD + resolved PATH`): **98**
+- Route evidence: `methods: [...]` matches found across controllers (98 total)
 
 ### API Test Mapping Table
 
-| Endpoint | Covered | Test Type | Test Files | Evidence (test/function) |
-|---|---:|---|---|---|
+Legend:
+- `Covered`: whether at least one test sends request to exact method+path
+- `Type`: true no-mock HTTP / HTTP with mocking / unit-only-indirect
+
+| Endpoint | Covered | Type | Test files | Evidence |
+|---|---|---|---|---|
 | POST `/api/v1/auth/login` | yes | true no-mock HTTP | `backend/tests/Api/Auth/LoginApiTest.php` | `testLoginWithValidCredentialsReturns200WithTokenAndUserData` |
 | POST `/api/v1/auth/logout` | yes | true no-mock HTTP | `backend/tests/Api/Auth/LoginApiTest.php` | `testLogoutRevokesSession` |
 | GET `/api/v1/auth/me` | yes | true no-mock HTTP | `backend/tests/Api/Auth/LoginApiTest.php` | `testGetMeWithValidTokenReturnsUserData` |
 | POST `/api/v1/auth/change-password` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/HealthAndAuthCoverageTest.php` | `testChangePasswordEndpointIsRoutable` |
 | GET `/api/v1/health` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/HealthAndAuthCoverageTest.php` | `testHealthEndpointReturns200` |
 | GET `/api/v1/search` | yes | true no-mock HTTP | `backend/tests/Api/Search/SearchApiTest.php` | `testSearchReturnsDataArrayAndPagination` |
-| POST `/api/v1/content` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/ContentLifecycleBehaviorTest.php` | `testGetContentByIdReturns200WithCompleteShape` (create via API in setup flow) |
+| POST `/api/v1/content` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/ContentLifecycleBehaviorTest.php` | `testGetContentByIdReturns200WithCompleteShape` setup/create |
 | GET `/api/v1/content` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/ContentLifecycleBehaviorTest.php` | `testListContentReturnsPaginatedEnvelope` |
 | GET `/api/v1/content/{id}` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/ContentLifecycleBehaviorTest.php` | `testGetContentByIdReturns200WithCompleteShape` |
 | PUT `/api/v1/content/{id}` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/ContentLifecycleBehaviorTest.php` | `testUpdateContentWithValidIfMatchSucceeds` |
@@ -78,7 +86,7 @@ Total endpoints (unique METHOD + resolved PATH): **98**
 | GET `/api/v1/compliance-reports/{id}/download` | yes | true no-mock HTTP | `backend/tests/Api/Compliance/ComplianceEnumValidationTest.php` | `testDownloadRouteExists` |
 | POST `/api/v1/mutations/replay` | yes | true no-mock HTTP | `backend/tests/Api/Behavior/MutationReplayBehaviorTest.php` | `testAdministratorStoreCreateMutationIsApplied` |
 | GET `/api/v1/mutations` | yes | true no-mock HTTP | `backend/tests/Api/Authorization/AuthorizationMatrixTest.php` | `testMutationListAllowedForAdministrator` |
-| POST `/api/v1/sources` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/ScrapingCoverageTest.php` | source setup + authorization checks in `EndpointAuthorizationTest::testAnalystCannotCreateSources` |
+| POST `/api/v1/sources` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/ScrapingCoverageTest.php` | source setup + authorization checks |
 | GET `/api/v1/sources` | yes | true no-mock HTTP | `backend/tests/Api/Security/EndpointAuthorizationTest.php` | `testAnalystCannotListSources` |
 | GET `/api/v1/sources/{id}` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/ScrapingCoverageTest.php` | `testGetSourceShowReturns200` |
 | PUT `/api/v1/sources/{id}` | yes | true no-mock HTTP | `backend/tests/Api/Coverage/ScrapingCoverageTest.php` | `testPutSourceUpdateReturns200` |
@@ -113,125 +121,130 @@ Total endpoints (unique METHOD + resolved PATH): **98**
 
 ### API Test Classification
 
-1. **True no-mock HTTP**
-   - Backend API suite uses Symfony `WebTestCase` + `static::createClient()` with real kernel/request handling (e.g., `backend/tests/Api/Behavior/ExportBehaviorTest.php`, `backend/tests/Api/Store/StoreCrudApiTest.php`, `backend/tests/Api/Auth/LoginApiTest.php`).
-   - Playwright E2E suite exercises real FE↔BE boundary (`frontend/e2e/*.spec.ts`) with real requests to `/api/v1/*`.
+1) **True No-Mock HTTP**
+- Backend API tests under `backend/tests/Api/**` use Symfony kernel client (`WebTestCase`, `static::createClient()`), with real request dispatch.
 
-2. **HTTP with mocking**
-   - **None found** in backend API tests.
+2) **HTTP with Mocking**
+- None detected in backend API test layer.
 
-3. **Non-HTTP tests (unit/integration)**
-   - `backend/tests/Unit/**` (uses mocks heavily via PHPUnit `createMock`).
-   - `backend/tests/Integration/**` (`KernelTestCase`, service-level integration without API transport).
+3) **Non-HTTP (unit/integration)**
+- `backend/tests/Unit/**` and `backend/tests/Integration/**`.
 
 ### Mock Detection
 
-- **API tests:** no transport/controller/service mocking detected under `backend/tests/Api/**` (no `createMock`, no mocking DSL matches).
-- **Unit/component tests with mocks (expected at that level):**
-  - `frontend/src/pages/__tests__/LoginPage.test.tsx` uses `vi.mock('@/hooks/useAuth', ...)`
-  - `frontend/src/pages/stores/__tests__/StoreListPage.test.tsx` uses `vi.mock('@/api/stores', ...)`
-  - `frontend/src/pages/exports/__tests__/ComplianceReportsPage.test.tsx` uses `vi.mock('@/api/complianceReports', ...)`
-  - Backend unit examples with mocked dependencies: `backend/tests/Unit/Service/MutationQueue/ReplayZoneCreateScopeTest.php`, `backend/tests/Unit/Security/Voter/MutationQueueVoterTest.php`.
+- Backend API tests: no `createMock`/transport mocking found under `backend/tests/Api/**`.
+- Frontend unit/component tests with mocking (expected at unit scope):
+  - `frontend/src/pages/__tests__/LoginPage.test.tsx` (`vi.mock('@/hooks/useAuth', ...)`)
+  - `frontend/src/pages/stores/__tests__/StoreListPage.test.tsx` (`vi.mock('@/api/stores', ...)`)
+  - `frontend/src/pages/exports/__tests__/ComplianceReportsPage.test.tsx` (`vi.mock('@/api/complianceReports', ...)`)
 
 ### Coverage Summary
 
 - Total endpoints: **98**
 - Endpoints with HTTP tests: **98**
-- Endpoints with true no-mock HTTP coverage: **98**
-- HTTP coverage: **100%** (endpoint-touch metric)
-- True API coverage: **100%** (no-mock HTTP endpoint-touch metric)
+- Endpoints with true no-mock HTTP tests: **98**
+- HTTP coverage %: **100%**
+- True API coverage %: **100%**
 
 ### Unit Test Summary
 
-- Unit test files present across controllers/services/security: `backend/tests/Unit/**`.
-- Integration tests present (narrow scope): `backend/tests/Integration/Auth/AuthenticationFlowTest.php`, `backend/tests/Integration/Auth/RbacServiceTest.php`.
-- Frontend unit/component tests present: `frontend/src/**/__tests__/*.test.*`.
-- Important tested areas: auth lockout/policy, export service rules, mutation queue rules, some voter logic, search/content scope helpers.
-- Important gaps:
-  - No dedicated repository-level tests under `backend/tests/**/Repository/**`.
-  - Integration breadth is concentrated in auth; non-auth service+DB integration is comparatively thin.
-  - Multiple frontend tests are static contract/object-shape checks rather than executing real module behavior (`frontend/src/api/__tests__/*.test.ts`, `frontend/src/services/mutationQueue/__tests__/replay-contract.test.ts`).
+- Unit tests present for controllers/services/security: `backend/tests/Unit/**`.
+- Integration tests present but narrower: `backend/tests/Integration/Auth/**`.
+- Frontend tests present: `frontend/src/**/__tests__/*` and `frontend/e2e/*.spec.ts`.
+- Important un/under-tested areas:
+  - Repository-focused tests absent (`backend/tests/**/Repository/**` not found).
+  - Non-auth integration breadth limited.
+  - Many frontend `api/*contract*.test.ts` and similar are static contract-shape tests, not executable behavior of live API client functions.
 
 ### API Observability Check
 
-- Strong in many behavior tests: clear method/path, concrete request payload, and response assertions (e.g., `ExportBehaviorTest`, `StoreCrudApiTest`, `SearchApiTest`, `ContentVersionDiffRollbackTest`).
-- Weak in several coverage tests: route/authorization existence checks with broad status acceptance (e.g., `testPostClassificationRouteExists`, boundary coverage tests asserting 403 route accessibility, and several `assertNotSame(404)` style checks).
-
-### run_tests.sh Check (Static)
-
-- `run_tests.sh` exists at repo root and is primarily Docker-driven (`docker compose exec/run` for PHPUnit, Vitest, Playwright).
-- Main flow does **not** rely on local Python/Node package manager state for test execution.
-- Host dependencies still required: Docker + shell tooling (`curl`, `grep`, `tail`).
+- Strong examples: `ExportBehaviorTest`, `StoreCrudApiTest`, `SearchApiTest`, `ContentVersionDiffRollbackTest` (clear endpoint, payload, and response assertions).
+- Weak examples: several `Coverage` tests accept broad status buckets or route-only guarantees (`assertNotSame(404)` / `assertContains([...])`), reducing confidence for behavior correctness.
 
 ### Tests Check
 
-- Relevant categories for this repo shape (fullstack) are present: **API, unit, integration, frontend component/unit, E2E**.
-- Category presence is strong; depth is uneven. Several endpoints are only checked via unauthorized/not-found/routability assertions and do not validate rich success-path business outputs.
-- E2E exists and is real-stack; however, portions use `page.request` shortcuts for backend calls rather than always driving full UI behavior.
-- Overall: broad suite with genuine no-mock HTTP reach, but confidence is reduced by shallow assertions in part of the API coverage layer and contract-style frontend tests.
+- Relevant categories for this fullstack shape are present: API, unit, integration, frontend component/unit, E2E.
+- Sufficiency concern remains: broad endpoint reach but uneven assertion depth in portions of API `Coverage` suite and static frontend contract tests.
+- `run_tests.sh` exists and is Docker-centered for main test flow (`docker compose exec/run`); no host Python/Node required for primary test execution.
 
-### Test Coverage Score (0–100)
+### Test Coverage Score
 
-**91 / 100**
+**82 / 100**
 
 ### Score Rationale
 
-- High breadth: endpoint-touch coverage is complete and API tests are real no-mock HTTP.
-- Score reduced for sufficiency depth: many checks are permissive (403/404/routable) rather than asserting full business outcomes, and frontend unit tests include a significant amount of non-executing contract-shape validation.
+- High breadth and strong no-mock API route coverage.
+- Reduced for depth/quality: a significant subset of tests are permissive or route-level, and frontend contract tests remain shallow for behavior confidence.
 
 ### Key Gaps
 
-- Several API coverage tests verify route availability/authorization only, not strong response semantics.
-- Some privileged success paths are under-validated (e.g., trigger-style endpoints often only tested for denied paths).
-- Frontend test mix is diluted by static contract tests that do not exercise implementation logic.
-- Repository-focused test coverage is absent.
+- Route/accessibility assertions still overrepresented in `backend/tests/Api/Coverage/*`.
+- Some critical lifecycle/trigger endpoints need richer success/failure payload assertions.
+- Frontend API test layer still leans on static contracts instead of executable behavior tests.
+- Repository/data-access-focused tests are missing.
 
 ### Confidence & Assumptions
 
-- Confidence: **medium-high**.
-- Assumptions:
-  - Route inventory is based strictly on static Symfony attributes in `backend/src/Controller/Api/V1`.
-  - Coverage is endpoint-touch + static evidence only; runtime behavior was not executed.
+- Confidence: **medium-high** (static-only).
+- Assumptions: route extraction from controller attributes reflects runtime routing; no runtime execution performed.
 
 ---
 
 ## 2) README Audit
 
-README inspected: `repo/README.md`
+Target file: `README.md`
 
-Project type declaration at top: **not explicit**. Inferred type from repository shape: **fullstack**.
+### Project Type Detection
 
-### Hard Gate Failures
+- Explicitly declared: `Project: fullstack` (`README.md:19`).
 
-1. **Verification method is not sufficiently concrete for acceptance use**
-   - README provides test/debug commands and static checks, but does not provide a clear end-user verification flow (e.g., explicit UI journey and/or concrete API curl examples with expected outputs).
-   - Evidence: `README.md:317` onward (“Static Verification Guidance”) is command-heavy and reviewer-oriented.
+### Hard Gate Checks
+
+1) Formatting
+- Pass: markdown is structured and readable.
+
+2) Startup instructions (fullstack)
+- Pass: includes `docker-compose up` (`README.md:64`).
+
+3) Access method
+- Pass: API and frontend URLs/ports are provided (`README.md:74-76`).
+
+4) Verification method
+- **Fail**: no concise acceptance verification flow for product-level validation (UI journey + concrete API call/expected outcomes). Current section is mostly engineering/static checks (`README.md:317-326`).
+
+5) Environment rules (strict)
+- **Fail**: README includes runtime install command examples (`npm install` in Playwright command snippet, `README.md:181`).
+- **Fail**: includes manual DB migration/schema update steps (`README.md:250-254`), which violates strict “no manual DB setup” gate.
+
+6) Demo credentials
+- Pass: credentials are provided for all listed roles (`README.md:82-88`).
 
 ### High Priority Issues
 
-- README does not explicitly declare project type near the top as required by this audit mode (inferred fullstack instead).
-- Verification section is oriented to engineering checks, not a practical product-acceptance walkthrough.
+- Missing acceptance-verification section with concrete user/API success criteria.
+- Runtime install command appears in README (`npm install`), violating strict environment gate.
+- Manual DB setup commands present in README under strict no-manual-setup policy.
 
 ### Medium Priority Issues
 
-- Some guidance includes developer-centric grep/router/schema commands that are useful but not concise for operator onboarding.
-- Test strategy is extensive but could better separate mandatory acceptance checks vs optional diagnostic checks.
+- Verification guidance is reviewer-centric (router/schema/grep), not operator/QA acceptance-centric.
 
 ### Low Priority Issues
 
-- Minor verbosity: the document is comprehensive but long; quick “happy path” verification could be surfaced earlier.
+- Document is long; key acceptance steps are not front-loaded.
+
+### Hard Gate Failures
+
+- Verification Method: **FAIL**
+- Environment Rules: **FAIL**
 
 ### README Verdict
 
-**PARTIAL PASS**
-
-Rationale:
-- Passes key fullstack startup and access basics (`docker-compose up`, service URLs, credentials/roles present).
-- Fails strict verification clarity gate for explicit acceptance validation flow.
+**FAIL**
 
 ---
 
 ## Final Verdicts
 
-- **Test Coverage Audit Verdict:** Broad and real HTTP coverage present, but depth is uneven; sufficient but not high-confidence for all business-critical paths.
-- **README Audit Verdict:** **PARTIAL PASS** under strict mode.
+- **Test Coverage Audit Verdict:** broad and meaningful, but not fully confidence-maximal due to uneven depth.
+- **README Audit Verdict:** **FAIL** under strict-mode hard gates.

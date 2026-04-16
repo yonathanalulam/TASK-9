@@ -16,6 +16,11 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(columns: ['store_id'], name: 'idx_search_index_store')]
 #[ORM\Index(columns: ['region_id'], name: 'idx_search_index_region')]
 #[ORM\Index(columns: ['published_at'], name: 'idx_search_index_published_at')]
+#[ORM\Index(columns: ['title', 'tags_text', 'author_name', 'body_text'], name: 'ft_search_all', flags: ['fulltext'])]
+#[ORM\Index(columns: ['title'], name: 'ft_search_title', flags: ['fulltext'])]
+#[ORM\Index(columns: ['tags_text'], name: 'ft_search_tags', flags: ['fulltext'])]
+#[ORM\Index(columns: ['author_name'], name: 'ft_search_author', flags: ['fulltext'])]
+#[ORM\Index(columns: ['body_text'], name: 'ft_search_body', flags: ['fulltext'])]
 class ContentSearchIndex
 {
     #[ORM\Id]

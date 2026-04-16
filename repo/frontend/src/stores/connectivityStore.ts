@@ -11,7 +11,7 @@ interface ConnectivityState {
 }
 
 const HEALTH_URL =
-  (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1') + '/health';
+  (import.meta.env.VITE_API_URL || '/api/v1') + '/health';
 const PING_INTERVAL = 30_000;
 
 export const useConnectivityStore = create<ConnectivityState>()((set) => ({

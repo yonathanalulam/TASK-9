@@ -254,7 +254,17 @@ class ContentService
                 return ['items' => [], 'total' => 0];
             }
 
+            // Convert RFC4122 strings to 16-byte binary for BINARY(16) column comparison.
+            $storeBinIds = array_map(
+                static fn (string $id) => \Symfony\Component\Uid\Uuid::fromString($id)->toBinary(),
+                $accessibleStoreIds,
+            );
+
             if ($accessibleRegionIds !== null && \count($accessibleRegionIds) > 0) {
+                $regionBinIds = array_map(
+                    static fn (string $id) => \Symfony\Component\Uid\Uuid::fromString($id)->toBinary(),
+                    $accessibleRegionIds,
+                );
                 // Include store-scoped content OR region-only content (no store_id, matching region).
                 $qb->andWhere(
                     $qb->expr()->orX(
@@ -265,11 +275,11 @@ class ContentService
                         ),
                     ),
                 );
-                $qb->setParameter('accessibleStoreIds', $accessibleStoreIds);
-                $qb->setParameter('accessibleRegionIds', $accessibleRegionIds);
+                $qb->setParameter('accessibleStoreIds', $storeBinIds);
+                $qb->setParameter('accessibleRegionIds', $regionBinIds);
             } else {
                 $qb->andWhere('c.storeId IN (:accessibleStoreIds)')
-                    ->setParameter('accessibleStoreIds', $accessibleStoreIds);
+                    ->setParameter('accessibleStoreIds', $storeBinIds);
             }
         }
 

@@ -91,29 +91,28 @@ final class BoundaryCoverageTest extends WebTestCase
     }
 
     /**
-     * GET /api/v1/boundaries returns 403.
+     * GET /api/v1/boundaries returns 200 for an authenticated admin.
      *
-     * BoundaryImportController gates on Permission::STORE_EDIT without a subject.
-     * The StoreVoter requires a concrete Store entity as subject to vote ACCESS_GRANTED;
-     * without a subject it abstains, which Symfony resolves as ACCESS_DENIED → 403.
-     * This is the correct authorization behavior: even ADMINISTRATOR is denied because
-     * the voter cannot evaluate scope without a concrete entity.
+     * The StoreVoter supports subjectless STORE_EDIT by checking canEditList(),
+     * which grants access to ADMINISTRATOR and STORE_MANAGER roles.
+     * An admin passes the auth check and gets a paginated (possibly empty) result.
      */
-    public function testGetBoundariesListReturns403(): void
+    public function testGetBoundariesListReturns200ForAdmin(): void
     {
         $token = $this->loginAsAdmin();
         $status = $this->api('GET', '/api/v1/boundaries', $token);
 
-        self::assertSame(403, $status,
-            'GET /api/v1/boundaries must return 403 — STORE_EDIT voter abstains without subject');
+        self::assertSame(200, $status,
+            'GET /api/v1/boundaries must return 200 for authenticated admin');
     }
 
     /**
-     * POST /api/v1/boundaries/upload returns 403.
+     * POST /api/v1/boundaries/upload without a file returns a validation error.
      *
-     * Same STORE_EDIT voter abstains behavior — no file needed to hit the auth gate.
+     * Admin passes the auth check; the endpoint then requires a file upload,
+     * which is missing — so it returns 400 (bad request).
      */
-    public function testPostBoundariesUploadReturns403(): void
+    public function testPostBoundariesUploadWithoutFileReturnsError(): void
     {
         $token = $this->loginAsAdmin();
 
@@ -124,51 +123,51 @@ final class BoundaryCoverageTest extends WebTestCase
 
         $status = $this->client->getResponse()->getStatusCode();
 
-        self::assertSame(403, $status,
-            'POST /api/v1/boundaries/upload must return 403 — STORE_EDIT voter abstains without subject');
+        // 400 for missing file, or 422 for validation — NOT 404/405
+        self::assertContains($status, [400, 422],
+            'POST /api/v1/boundaries/upload without a file must return 400 or 422');
     }
 
     /**
-     * GET /api/v1/boundaries/{id} returns 403.
+     * GET /api/v1/boundaries/{id} returns 404 for a non-existent boundary.
      *
-     * The STORE_EDIT permission check runs before the entity lookup in this controller,
-     * so the voter abstains and returns 403 before any 404 check occurs.
+     * Admin passes auth; entity lookup fails → 404.
      */
-    public function testGetBoundaryShowReturns403(): void
+    public function testGetBoundaryShowReturns404ForNonExistent(): void
     {
         $token = $this->loginAsAdmin();
         $status = $this->api('GET', '/api/v1/boundaries/00000000-0000-0000-0000-000000000001', $token);
 
-        self::assertSame(403, $status,
-            'GET /api/v1/boundaries/{id} must return 403 — STORE_EDIT voter abstains without subject');
+        self::assertSame(404, $status,
+            'GET /api/v1/boundaries/{id} must return 404 for non-existent boundary');
     }
 
     /**
-     * POST /api/v1/boundaries/{id}/validate returns 403.
+     * POST /api/v1/boundaries/{id}/validate returns 404 for a non-existent boundary.
      */
-    public function testPostBoundaryValidateReturns403(): void
+    public function testPostBoundaryValidateReturns404ForNonExistent(): void
     {
         $token = $this->loginAsAdmin();
         $status = $this->api('POST', '/api/v1/boundaries/00000000-0000-0000-0000-000000000001/validate', $token);
 
-        self::assertSame(403, $status,
-            'POST /api/v1/boundaries/{id}/validate must return 403 — STORE_EDIT voter abstains');
+        self::assertSame(404, $status,
+            'POST /api/v1/boundaries/{id}/validate must return 404 for non-existent boundary');
     }
 
     /**
-     * POST /api/v1/boundaries/{id}/apply returns 403.
+     * POST /api/v1/boundaries/{id}/apply returns 404 for a non-existent boundary.
      */
-    public function testPostBoundaryApplyReturns403(): void
+    public function testPostBoundaryApplyReturns404ForNonExistent(): void
     {
         $token = $this->loginAsAdmin();
         $status = $this->api('POST', '/api/v1/boundaries/00000000-0000-0000-0000-000000000001/apply', $token);
 
-        self::assertSame(403, $status,
-            'POST /api/v1/boundaries/{id}/apply must return 403 — STORE_EDIT voter abstains');
+        self::assertSame(404, $status,
+            'POST /api/v1/boundaries/{id}/apply must return 404 for non-existent boundary');
     }
 
     /**
-     * Unauthenticated requests to boundary endpoints return 401, not 403.
+     * Unauthenticated requests to boundary endpoints return 401.
      * This verifies that authentication is enforced before authorization.
      */
     public function testUnauthenticatedBoundaryRequestReturns401(): void

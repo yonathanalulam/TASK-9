@@ -33,7 +33,7 @@ class UserRoleAssignment
     #[ORM\Column(type: Types::STRING, length: 20, enumType: ScopeType::class)]
     private ScopeType $scopeType;
 
-    #[ORM\Column(type: 'binary', length: 16, nullable: true)]
+    #[ORM\Column(type: Types::STRING, length: 36, nullable: true)]
     private ?string $scopeId = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]

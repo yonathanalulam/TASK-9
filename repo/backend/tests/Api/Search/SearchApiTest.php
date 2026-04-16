@@ -69,6 +69,10 @@ final class SearchApiTest extends WebTestCase
 
         $body = json_decode($this->client->getResponse()->getContent(), true);
 
+        // Search endpoint must always return a valid response shape
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        self::assertIsArray($body['data']);
+
         if (count($body['data']) > 0) {
             $firstItem = $body['data'][0];
 

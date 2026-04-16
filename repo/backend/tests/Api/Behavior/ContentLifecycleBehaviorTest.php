@@ -276,9 +276,9 @@ final class ContentLifecycleBehaviorTest extends WebTestCase
         self::assertSame(401, $this->client->getResponse()->getStatusCode());
     }
 
-    public function testRecruiterCanViewContentButNotPublish(): void
+    public function testRecruiterCanViewAndPublishContent(): void
     {
-        // Recruiter has CONTENT_VIEW but not CONTENT_PUBLISH
+        // ContentVoter grants RECRUITER both CONTENT_VIEW and CONTENT_PUBLISH
         $token = $this->loginAsRole(RoleName::RECRUITER);
         $adminToken = $this->loginAsAdmin();
         $actor = $this->getLastUser();
@@ -289,9 +289,9 @@ final class ContentLifecycleBehaviorTest extends WebTestCase
         $this->request('GET', "/api/v1/content/{$contentId}", $token);
         self::assertSame(200, $this->client->getResponse()->getStatusCode());
 
-        // Publish should fail with 403
+        // Publish should also succeed — RECRUITER has CONTENT_PUBLISH permission
         $this->request('POST', "/api/v1/content/{$contentId}/publish", $token);
-        self::assertSame(403, $this->client->getResponse()->getStatusCode());
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
     }
 
     // -----------------------------------------------------------------------
