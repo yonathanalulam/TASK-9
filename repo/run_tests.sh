@@ -58,13 +58,17 @@ done
 # ---------------------------------------------------------------------------
 step "[3/9] Verifying API health"
 for i in $(seq 1 20); do
-    HEALTH=$(curl -sf http://localhost:8080/api/v1/health 2>/dev/null || echo '')
-    if [ -n "$HEALTH" ]; then
+    HEALTH=$(curl -s http://localhost:8080/api/v1/health 2>/dev/null || echo '')
+    if echo "$HEALTH" | grep -q '"status":"healthy"' && echo "$HEALTH" | grep -q '"database":"connected"'; then
         echo "  API health: ${HEALTH}"
         break
     fi
     if [ "$i" -eq 20 ]; then
-        echo "  WARNING: API health check did not respond after 40s."
+        echo "  WARNING: API health check did not reach healthy state after 40s."
+        if [ -n "$HEALTH" ]; then
+            echo "  Last API health payload: ${HEALTH}"
+        fi
+        docker compose logs php 2>&1 | tail -20
     fi
     sleep 2
 done

@@ -3,6 +3,19 @@ set -e
 
 cd /var/www/backend
 
+# Ensure Symfony runtime dotenv file exists in cold clones.
+if [ ! -f .env ]; then
+    echo "[entrypoint] backend/.env missing; creating fallback defaults..."
+    cat > .env <<'EOF'
+APP_ENV=dev
+APP_SECRET=meridian_default_dev_secret_do_not_use_in_prod
+APP_SHARE_DIR=var/share
+DEFAULT_URI=http://localhost
+CORS_ALLOW_ORIGIN='^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+DATABASE_URL="mysql://meridian_app:meridian_secret@mysql:3306/meridian?serverVersion=8.0&charset=utf8mb4"
+EOF
+fi
+
 # Install dependencies if vendor/ is missing (cold start)
 if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
     echo "[entrypoint] Installing Composer dependencies..."
