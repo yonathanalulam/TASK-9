@@ -122,10 +122,11 @@ final class DeliveryZoneCoverageTest extends WebTestCase
             'delivery_fee' => '3.99',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [201, 422], 'Expected 201 or 422');
+        self::assertSame(201, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('id', $body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testListDeliveryZonesReturns200(): void
@@ -143,10 +144,11 @@ final class DeliveryZoneCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/stores/' . $storeId . '/delivery-zones', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testShowDeliveryZoneReturns200(): void
@@ -164,10 +166,10 @@ final class DeliveryZoneCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/delivery-zones/' . $zoneId, $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testUpdateDeliveryZoneReturns200(): void
@@ -189,9 +191,9 @@ final class DeliveryZoneCoverageTest extends WebTestCase
             'name' => 'Updated Zone',
         ], ['HTTP_IF_MATCH' => '"' . $version . '"']);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [200, 422, 428, 500], 'Route is accessible');
+        self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 }

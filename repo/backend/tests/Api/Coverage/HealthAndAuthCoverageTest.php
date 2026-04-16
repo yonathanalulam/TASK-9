@@ -77,10 +77,13 @@ final class HealthAndAuthCoverageTest extends WebTestCase
     {
         $status = $this->api('GET', '/api/v1/health');
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('status', $body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 
     public function testChangePasswordEndpointIsRoutable(): void
@@ -92,10 +95,15 @@ final class HealthAndAuthCoverageTest extends WebTestCase
             'new_password' => 'N3w$ecurePass!',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        // 200 on success, 400/422 on validation — any of these prove the route works
         self::assertContains($status, [200, 400, 422], 'Expected a handled response');
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        if ($status === 200) {
+            self::assertNull($body['error']);
+        } else {
+            self::assertNotNull($body['error']);
+        }
     }
 }

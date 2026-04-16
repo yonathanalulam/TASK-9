@@ -111,10 +111,13 @@ final class RoleAssignmentCoverageTest extends WebTestCase
             'effective_from' => '2025-01-01',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(201, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('id', $body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 
     public function testListRoleAssignmentsReturns200(): void
@@ -133,10 +136,13 @@ final class RoleAssignmentCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/users/' . $userId . '/role-assignments', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 
     public function testDeleteRoleAssignmentReturns200(): void
@@ -167,9 +173,11 @@ final class RoleAssignmentCoverageTest extends WebTestCase
 
         $status = $this->api('DELETE', '/api/v1/users/' . $userId . '/role-assignments/' . $assignmentId, $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 }

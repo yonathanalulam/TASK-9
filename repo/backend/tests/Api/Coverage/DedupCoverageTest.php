@@ -87,6 +87,10 @@ final class DedupCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/dedup/review', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testPostDedupMergeReturns404ForNonExistentItem(): void
@@ -95,6 +99,10 @@ final class DedupCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/dedup/review/00000000-0000-0000-0000-000000000001/merge', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 
     public function testPostDedupRejectReturns404ForNonExistentItem(): void
@@ -103,6 +111,10 @@ final class DedupCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/dedup/review/00000000-0000-0000-0000-000000000001/reject', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 
     public function testPostDedupUnmergeReturns404ForNonExistentEvent(): void
@@ -111,5 +123,9 @@ final class DedupCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/dedup/unmerge/00000000-0000-0000-0000-000000000001', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 }

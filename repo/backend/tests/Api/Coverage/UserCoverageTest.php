@@ -90,10 +90,13 @@ final class UserCoverageTest extends WebTestCase
             'password' => 'V@lid1Password!',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [201, 422], 'Expected 201 or 422');
+        self::assertSame(201, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('id', $body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 
     public function testListUsersReturns200(): void
@@ -102,10 +105,14 @@ final class UserCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/users', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertArrayHasKey('pagination', $body['meta']);
+        self::assertNull($body['error']);
     }
 
     public function testShowUserReturns200(): void
@@ -123,10 +130,13 @@ final class UserCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/users/' . $userId, $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('id', $body['data']);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 
     public function testUpdateUserReturns200Or428(): void
@@ -147,10 +157,16 @@ final class UserCoverageTest extends WebTestCase
             'display_name' => 'Updated',
         ], ['HTTP_IF_MATCH' => '1']);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertContains($status, [200, 428], 'Expected 200 or 428');
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        if ($status === 200) {
+            self::assertNull($body['error']);
+        } else {
+            self::assertNotNull($body['error']);
+        }
     }
 
     public function testDeactivateUserReturns200(): void
@@ -168,9 +184,11 @@ final class UserCoverageTest extends WebTestCase
 
         $status = $this->api('PATCH', '/api/v1/users/' . $userId . '/deactivate', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 }

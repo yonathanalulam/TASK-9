@@ -59,7 +59,7 @@ services:
     environment:
       # Use relative URL so Vite proxy forwards API calls to nginx (needed for E2E)
       VITE_API_URL: /api/v1
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm install --force && npm run dev -- --host 0.0.0.0"
     networks:
       - meridian
 
@@ -78,7 +78,7 @@ services:
       - meridian
     profiles:
       - e2e
-    command: ["sh", "-c", "npm install --silent 2>/dev/null && npx playwright install chromium 2>&1 && npx playwright test --config=playwright.config.ts --reporter=list"]
+    command: ["sh", "-c", "npm install --force --silent 2>/dev/null && npx playwright install chromium 2>&1 && npx playwright test --config=playwright.config.ts --reporter=list"]
 
   worker:
     build:

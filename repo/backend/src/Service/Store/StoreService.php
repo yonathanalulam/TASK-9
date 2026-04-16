@@ -253,7 +253,8 @@ class StoreService
         $qb = $this->storeRepository->createQueryBuilder('s');
 
         if ($regionId !== null) {
-            $qb->andWhere('s.region = :regionId')->setParameter('regionId', $regionId);
+            $qb->andWhere('s.region = :regionId')
+                ->setParameter('regionId', \Symfony\Component\Uid\Uuid::fromString($regionId)->toBinary());
         }
 
         if ($type !== null) {

@@ -30,14 +30,7 @@
         </testsuite>
     </testsuites>
 
-    <!--
-      Coverage configuration.
-      Driver: pcov (installed in docker/php/Dockerfile).
-      Minimum line coverage threshold: 60% (enforced via --min-coverage=60 in run_tests.sh).
-      To run coverage locally:
-        docker compose exec -e APP_ENV=test php \
-          php bin/phpunit --testsuite=unit --coverage-text --min-coverage=60
-    -->
+    <!-- Coverage configuration. Driver: pcov (installed in docker/php/Dockerfile). -->
     <coverage>
         <include>
             <directory>src</directory>

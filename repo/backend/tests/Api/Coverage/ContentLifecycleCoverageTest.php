@@ -135,7 +135,7 @@ final class ContentLifecycleCoverageTest extends WebTestCase
         return $users[0];
     }
 
-    public function testPostContentRouteIsAccessibleAndAuthorized(): void
+    public function testPostContentReturns201OrHandlesAuditError(): void
     {
         $token = $this->loginAsAdmin();
         $status = $this->api('POST', '/api/v1/content', $token, [
@@ -145,12 +145,16 @@ final class ContentLifecycleCoverageTest extends WebTestCase
             'author_name' => 'Tester',
         ]);
 
-        // Route exists and is authorized — must not return 404 (not found) or 405 (method not allowed).
-        // May return 201 (created) or 500 if there is a known audit-service side effect.
-        self::assertNotSame(404, $status, 'POST /api/v1/content must not return 404');
-        self::assertNotSame(405, $status, 'POST /api/v1/content must not return 405');
-        // Explicitly assert that authorization is not blocking the route for ADMINISTRATOR
-        self::assertNotSame(403, $status, 'ADMINISTRATOR must not receive 403 on content create');
+        // Expect 201 (created). The endpoint may return 500 if the audit-service
+        // entity_id BINARY(16) encoding fails for this specific entity type.
+        self::assertContains($status, [201, 500], 'POST /api/v1/content must return 201 or 500 (audit side-effect)');
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        if ($status === 201) {
+            self::assertNull($body['error']);
+            self::assertNotEmpty($body['data']['id']);
+        }
     }
 
     public function testGetContentByIdReturns200(): void
@@ -202,7 +206,7 @@ final class ContentLifecycleCoverageTest extends WebTestCase
             'Content status must transition to ARCHIVED after the archive action');
     }
 
-    public function testUpdateContentWithIfMatchRouteExists(): void
+    public function testUpdateContentWithIfMatchReturns200OrConcurrencyError(): void
     {
         $token = $this->loginAsAdmin();
         $actor = $this->getAdminUser();
@@ -212,8 +216,15 @@ final class ContentLifecycleCoverageTest extends WebTestCase
             'title' => 'Updated Title',
         ], ['HTTP_IF_MATCH' => '"1"']);
 
-        // May be 200, 422, or 500 (audit bug). Not 404/405.
-        self::assertNotContains($status, [404, 405], 'PUT /api/v1/content/{id} route must exist');
+        // 200 on success, 412 on version mismatch, 500 on audit side-effect
+        self::assertContains($status, [200, 412, 500],
+            'PUT /api/v1/content/{id} must return 200, 412, or 500');
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        if ($status === 200) {
+            self::assertNull($body['error']);
+        }
     }
 
     public function testGetContentVersionByIdReturns200(): void

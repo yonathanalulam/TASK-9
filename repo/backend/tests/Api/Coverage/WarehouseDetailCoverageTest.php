@@ -87,5 +87,9 @@ final class WarehouseDetailCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/warehouse/loads/00000000-0000-0000-0000-000000000001', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 }

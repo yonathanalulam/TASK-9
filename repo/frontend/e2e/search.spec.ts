@@ -51,17 +51,22 @@ test.describe('Search', () => {
     await expect(searchInput).toBeVisible({ timeout: 8000 });
   });
 
-  test('B2: empty search shows validation error, not a crash', async ({ page }) => {
+  test('B2: search page does not crash with empty interaction', async ({ page }) => {
     await page.goto('/search');
+    await expect(page).not.toHaveURL(/\/login/);
 
-    // Try submitting an empty search
+    // The page should render without crashing regardless of search state
+    await expect(page.locator('body')).toBeVisible();
+
+    // If a submit button exists, click it and verify no crash
     const submitBtn = page.locator('button[type="submit"], button:has-text("Search")').first();
     if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await submitBtn.click();
-      // Should show error or simply not crash the page
-      await expect(page.locator('body')).toBeVisible();
-      await expect(page).not.toHaveURL(/\/login/);
     }
+
+    // Page must remain functional after interaction
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page).not.toHaveURL(/\/login/);
   });
 
   test('B3: search with a query returns results or empty state (no crash)', async ({ page }) => {

@@ -89,24 +89,28 @@ final class ClassificationCoverageTest extends WebTestCase
     }
 
     /**
-     * POST /api/v1/classifications - the entity_id column is BINARY(16) but the
-     * controller passes a string directly, causing a DB truncation error (500).
-     * We pass a 16-byte hex string to fit the column. If it still 500s, the route
-     * at least exists (not 404/405).
+     * POST /api/v1/classifications - creates a new classification.
+     * Expects 201 on success or 422 on validation failure; validates response envelope.
      */
     public function testPostClassificationRouteExists(): void
     {
         $token = $this->loginAsAdmin();
-        // Use a 16-byte hex value to match the BINARY(16) column
         $status = $this->api('POST', '/api/v1/classifications', $token, [
             'entity_type' => 'store',
-            'entity_id' => bin2hex(Uuid::v7()->toBinary()),
+            'entity_id' => Uuid::v7()->toRfc4122(),
             'classification' => 'CONFIDENTIAL',
         ]);
 
-        // Route exists and is authorized. May be 201 or 500 depending on
-        // how the controller handles entity_id.
-        self::assertNotContains($status, [404, 405], 'POST /api/v1/classifications route must exist');
+        self::assertContains($status, [201, 422], 'Expected 201 or 422');
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        if ($status === 201) {
+            self::assertNull($body['error']);
+        } else {
+            self::assertNotNull($body['error']);
+        }
     }
 
     public function testGetClassificationsListReturns200(): void

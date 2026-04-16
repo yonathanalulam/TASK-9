@@ -101,6 +101,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/sources/' . $id, $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testPutSourceUpdateReturns200(): void
@@ -113,6 +116,9 @@ final class ScrapingCoverageTest extends WebTestCase
         ]);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testPostSourcePauseReturns200(): void
@@ -123,6 +129,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/sources/' . $id . '/pause', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testPostSourceResumeReturns200(): void
@@ -135,6 +144,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/sources/' . $id . '/resume', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testPostSourceDisableReturns200(): void
@@ -145,6 +157,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/sources/' . $id . '/disable', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testGetSourceHealthReturns200(): void
@@ -155,6 +170,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/sources/' . $id . '/health', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testGetSourcesHealthDashboardReturns200(): void
@@ -163,6 +181,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/sources/health/dashboard', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testGetScrapeRunsListReturns200(): void
@@ -171,6 +192,10 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/scrape-runs', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testGetScrapeRunShowReturns404ForNonExistentId(): void
@@ -179,5 +204,9 @@ final class ScrapingCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/scrape-runs/00000000-0000-0000-0000-000000000001', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 }

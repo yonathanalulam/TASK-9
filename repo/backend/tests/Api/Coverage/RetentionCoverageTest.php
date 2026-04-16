@@ -87,6 +87,10 @@ final class RetentionCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/retention/cases', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testGetRetentionStatsReturns200(): void
@@ -95,6 +99,9 @@ final class RetentionCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/retention/stats', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testPostRetentionScheduleReturns404ForNonExistentCase(): void
@@ -103,5 +110,9 @@ final class RetentionCoverageTest extends WebTestCase
         $status = $this->api('POST', '/api/v1/retention/cases/00000000-0000-0000-0000-000000000001/schedule', $token);
 
         self::assertSame(404, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $body);
+        self::assertNotNull($body['error']);
+        self::assertArrayHasKey('code', $body['error']);
     }
 }

@@ -139,10 +139,10 @@ final class DeliveryWindowCoverageTest extends WebTestCase
             'end_time' => '12:00',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [201, 422], 'Expected 201 or 422');
+        self::assertSame(201, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testListDeliveryWindowsReturns200(): void
@@ -161,10 +161,11 @@ final class DeliveryWindowCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/delivery-zones/' . $zoneId . '/windows', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [200, 422, 500], 'Route is accessible');
+        self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 
     public function testUpdateDeliveryWindowReturns200(): void
@@ -189,10 +190,10 @@ final class DeliveryWindowCoverageTest extends WebTestCase
             'end_time' => '13:00',
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [200, 422, 500], 'Route is accessible');
+        self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testDeleteDeliveryWindowReturns200(): void
@@ -214,9 +215,9 @@ final class DeliveryWindowCoverageTest extends WebTestCase
 
         $status = $this->api('DELETE', '/api/v1/delivery-windows/' . $windowId, $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
-        self::assertContains($status, [200, 422, 500], 'Route is accessible');
+        self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 }

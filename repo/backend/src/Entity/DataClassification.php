@@ -21,7 +21,7 @@ class DataClassification
     #[ORM\Column(type: Types::STRING, length: 100)]
     private string $entityType;
 
-    #[ORM\Column(type: Types::BINARY, length: 16)]
+    #[ORM\Column(type: Types::STRING, length: 36)]
     private string $entityId;
 
     #[ORM\Column(type: Types::STRING, length: 100, nullable: true)]

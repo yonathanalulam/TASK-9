@@ -141,10 +141,15 @@ final class ZoneMappingCoverageTest extends WebTestCase
             'precedence' => 1,
         ]);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertContains($status, [201, 422], 'Expected 201 or 422');
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        if ($status === 201) {
+            self::assertArrayHasKey('data', $body);
+            self::assertNull($body['error']);
+        } else {
+            self::assertArrayHasKey('error', $body);
+            self::assertNotNull($body['error']);
+        }
     }
 
     public function testListZoneMappingsReturns200(): void
@@ -156,9 +161,10 @@ final class ZoneMappingCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/delivery-zones/' . $zoneId . '/mappings', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 }

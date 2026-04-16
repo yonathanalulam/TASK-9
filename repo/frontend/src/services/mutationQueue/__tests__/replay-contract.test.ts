@@ -1,4 +1,23 @@
-import { describe, it, expect } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import type { QueuedMutation } from '../types';
+
+/* ------------------------------------------------------------------ */
+/*  Mock the MutationQueue so replay() can dequeue/mark mutations      */
+/* ------------------------------------------------------------------ */
+const mockDequeueReady = vi.fn();
+const mockMarkSucceeded = vi.fn();
+const mockMarkFailed = vi.fn();
+
+vi.mock('../MutationQueue', () => ({
+  MutationQueue: vi.fn().mockImplementation(() => ({
+    dequeueReady: mockDequeueReady,
+    markSucceeded: mockMarkSucceeded,
+    markFailed: mockMarkFailed,
+  })),
+}));
+
+import { MutationReplay } from '../MutationReplay';
+import { MutationQueue } from '../MutationQueue';
 
 /**
  * Tests that the offline mutation replay wire contract is aligned between
@@ -9,7 +28,33 @@ import { describe, it, expect } from 'vitest';
  * The MutationReplay class must map between these explicitly.
  */
 describe('Mutation replay wire contract', () => {
-  describe('Request payload mapping (camelCase → snake_case)', () => {
+  let mockAxios: { post: ReturnType<typeof vi.fn> };
+  let replay: MutationReplay;
+
+  const sampleMutation: QueuedMutation = {
+    id: 'local-uuid-1',
+    entityType: 'store',
+    entityId: null,
+    operation: 'CREATE',
+    payload: { code: 'STORE-001', name: 'Test Store' },
+    createdAt: Date.now(),
+    retryCount: 0,
+    nextRetryAt: 0,
+    lastError: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAxios = { post: vi.fn() };
+    const queue = new MutationQueue() as unknown as MutationQueue;
+    replay = new MutationReplay(mockAxios as never, queue);
+  });
+
+  /* ================================================================== */
+  /*  Original contract shape assertions (preserved)                     */
+  /* ================================================================== */
+
+  describe('Request payload mapping (camelCase -> snake_case)', () => {
     it('maps local queue id to wire mutation_id', () => {
       // Simulate the toWirePayload mapping
       const local = { id: 'local-uuid-1', entityType: 'store', entityId: null, operation: 'CREATE', payload: {} };
@@ -50,13 +95,13 @@ describe('Mutation replay wire contract', () => {
         operation: 'CREATE',
         payload: {},
       };
-      // Backend reads mutation_id which would be undefined → empty string → rejected
+      // Backend reads mutation_id which would be undefined -> empty string -> rejected
       const mutationId = (badPayload as Record<string, unknown>)['mutation_id'] ?? '';
       expect(mutationId).toBe('');
     });
   });
 
-  describe('Response envelope unwrapping (snake_case → camelCase)', () => {
+  describe('Response envelope unwrapping (snake_case -> camelCase)', () => {
     it('unwraps ApiEnvelope to get result array', () => {
       // Backend returns { data: [...], meta: {...}, error: null }
       const envelope = {
@@ -80,6 +125,177 @@ describe('Mutation replay wire contract', () => {
       expect(mapped.mutationId).toBe('uuid-1');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((mapped as any).mutation_id).toBeUndefined();
+    });
+  });
+
+  /* ================================================================== */
+  /*  Behavior tests — call real MutationReplay with mocked HTTP         */
+  /* ================================================================== */
+
+  describe('replay() sends correct wire format', () => {
+    it('transforms camelCase mutations to snake_case and POSTs to /mutations/replay', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+
+      const wireResponse = {
+        data: {
+          data: [{ mutation_id: 'local-uuid-1', status: 'APPLIED' }],
+          meta: { request_id: 'req-1', timestamp: '2026-01-01' },
+          error: null,
+        },
+      };
+      mockAxios.post.mockResolvedValueOnce(wireResponse);
+
+      await replay.replay();
+
+      expect(mockAxios.post).toHaveBeenCalledWith('/mutations/replay', {
+        mutations: [
+          {
+            mutation_id: 'local-uuid-1',
+            client_id: 'local-uuid-1',
+            entity_type: 'store',
+            entity_id: null,
+            operation: 'CREATE',
+            payload: { code: 'STORE-001', name: 'Test Store' },
+          },
+        ],
+      });
+    });
+
+    it('does NOT send camelCase keys in the wire payload', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+
+      const wireResponse = {
+        data: {
+          data: [{ mutation_id: 'local-uuid-1', status: 'APPLIED' }],
+          meta: { request_id: 'req-1', timestamp: '2026-01-01' },
+          error: null,
+        },
+      };
+      mockAxios.post.mockResolvedValueOnce(wireResponse);
+
+      await replay.replay();
+
+      const sentBody = mockAxios.post.mock.calls[0][1];
+      const sentMutation = sentBody.mutations[0];
+      expect(sentMutation).toHaveProperty('mutation_id');
+      expect(sentMutation).toHaveProperty('entity_type');
+      expect(sentMutation).toHaveProperty('entity_id');
+      expect(sentMutation).not.toHaveProperty('id');
+      expect(sentMutation).not.toHaveProperty('entityType');
+      expect(sentMutation).not.toHaveProperty('entityId');
+    });
+  });
+
+  describe('replay() processes APPLIED results', () => {
+    it('marks APPLIED mutations as succeeded', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockResolvedValueOnce({
+        data: {
+          data: [{ mutation_id: 'local-uuid-1', status: 'APPLIED' }],
+          meta: { request_id: 'req-1', timestamp: '2026-01-01' },
+          error: null,
+        },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkSucceeded).toHaveBeenCalledWith('local-uuid-1');
+      expect(mockMarkFailed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replay() processes CONFLICT results', () => {
+    it('marks CONFLICT mutations as failed with retryable=true', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockResolvedValueOnce({
+        data: {
+          data: [{ mutation_id: 'local-uuid-1', status: 'CONFLICT', detail: 'Version mismatch' }],
+          meta: { request_id: 'req-2', timestamp: '2026-01-01' },
+          error: null,
+        },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Version mismatch', true);
+      expect(mockMarkSucceeded).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replay() processes REJECTED results', () => {
+    it('marks REJECTED mutations as failed with retryable=false', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockResolvedValueOnce({
+        data: {
+          data: [{ mutation_id: 'local-uuid-1', status: 'REJECTED', detail: 'Invalid payload' }],
+          meta: { request_id: 'req-3', timestamp: '2026-01-01' },
+          error: null,
+        },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Invalid payload', false);
+      expect(mockMarkSucceeded).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replay() handles network errors', () => {
+    it('marks all mutations as failed with retryable=true on network error', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockRejectedValueOnce({ message: 'Network Error' });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Network Error', true);
+    });
+
+    it('marks as retryable on 429 Too Many Requests', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockRejectedValueOnce({
+        message: 'Too Many Requests',
+        response: { status: 429, data: {} },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Too Many Requests', true);
+    });
+
+    it('marks as retryable on 503 Service Unavailable', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockRejectedValueOnce({
+        message: 'Service Unavailable',
+        response: { status: 503, data: {} },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Service Unavailable', true);
+    });
+
+    it('marks as NOT retryable on 400 Bad Request', async () => {
+      mockDequeueReady.mockResolvedValueOnce([sampleMutation]);
+      mockAxios.post.mockRejectedValueOnce({
+        message: 'Bad Request',
+        response: { status: 400, data: {} },
+      });
+
+      await replay.replay();
+
+      expect(mockMarkFailed).toHaveBeenCalledWith('local-uuid-1', 'Bad Request', false);
+    });
+  });
+
+  describe('replay() with empty queue', () => {
+    it('does not call the API when there are no queued mutations', async () => {
+      mockDequeueReady.mockResolvedValueOnce([]);
+
+      await replay.replay();
+
+      expect(mockAxios.post).not.toHaveBeenCalled();
+      expect(mockMarkSucceeded).not.toHaveBeenCalled();
+      expect(mockMarkFailed).not.toHaveBeenCalled();
     });
   });
 });

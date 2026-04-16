@@ -87,6 +87,9 @@ final class AnalyticsCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/analytics/sales/trends', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testGetAnalyticsContentVolumeReturns200(): void
@@ -95,5 +98,8 @@ final class AnalyticsCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/analytics/content-volume', $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 }

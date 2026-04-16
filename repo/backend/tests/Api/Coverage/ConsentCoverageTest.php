@@ -105,6 +105,9 @@ final class ConsentCoverageTest extends WebTestCase
         ]);
 
         self::assertSame(201, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertNull($body['error']);
     }
 
     public function testGetConsentUserHistoryReturns200(): void
@@ -123,5 +126,9 @@ final class ConsentCoverageTest extends WebTestCase
         $status = $this->api('GET', '/api/v1/consent/user/' . $userId, $token);
 
         self::assertSame(200, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertIsArray($body['data']);
+        self::assertNull($body['error']);
     }
 }

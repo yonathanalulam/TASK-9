@@ -117,9 +117,11 @@ final class StoreVersionsCoverageTest extends WebTestCase
 
         $status = $this->api('GET', '/api/v1/stores/' . $storeId . '/versions', $token);
 
-        self::assertNotSame(404, $status, 'Route must exist');
-        self::assertNotSame(405, $status, 'Method must be allowed');
-        // Route existence proven by not-404 and not-405 above.
         self::assertSame(200, $status);
+
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('data', $body);
+        self::assertArrayHasKey('meta', $body);
+        self::assertNull($body['error']);
     }
 }
