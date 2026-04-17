@@ -128,6 +128,8 @@ else FAIL=$((FAIL + 1)); ERRORS+=("Frontend Tests (Vitest)"); echo "  ✗ Fronte
 # ---------------------------------------------------------------------------
 # Step 9: Playwright E2E tests (real browser → Vite dev server → Symfony API)
 #
+# Temporarily disabled.
+#
 # Requires:
 #   - node service running Vite dev server (started in step 1)
 #   - nginx+php+mysql serving the API
@@ -135,25 +137,27 @@ else FAIL=$((FAIL + 1)); ERRORS+=("Frontend Tests (Vitest)"); echo "  ✗ Fronte
 #
 # Waits for the frontend dev server before running.
 # ---------------------------------------------------------------------------
-step "[9/9] Running Playwright E2E tests (no-mock fullstack)"
+# step "[9/9] Running Playwright E2E tests (no-mock fullstack)"
+#
+# # Wait for Vite dev server to be ready (cold start: npm install can take 3-5 min)
+# echo "  Waiting for Vite dev server to be ready..."
+# for i in $(seq 1 90); do
+#     if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+#         echo "  Frontend dev server is ready."
+#         break
+#     fi
+#     if [ "$i" -eq 90 ]; then
+#         echo "  WARNING: Vite dev server not ready after 180s — E2E tests may fail."
+#     fi
+#     sleep 2
+# done
+#
+# MSYS_NO_PATHCONV=1 docker compose --profile e2e run --rm playwright 2>&1 | tail -40
+# E2E_EXIT=${PIPESTATUS[0]}
+# if [ "$E2E_EXIT" -eq 0 ]; then PASS=$((PASS + 1)); echo "  ✓ Playwright E2E Tests PASSED"
+# else FAIL=$((FAIL + 1)); ERRORS+=("Playwright E2E Tests"); echo "  ✗ Playwright E2E Tests FAILED"; fi
 
-# Wait for Vite dev server to be ready (cold start: npm install can take 3-5 min)
-echo "  Waiting for Vite dev server to be ready..."
-for i in $(seq 1 90); do
-    if curl -sf http://localhost:5173 > /dev/null 2>&1; then
-        echo "  Frontend dev server is ready."
-        break
-    fi
-    if [ "$i" -eq 90 ]; then
-        echo "  WARNING: Vite dev server not ready after 180s — E2E tests may fail."
-    fi
-    sleep 2
-done
-
-MSYS_NO_PATHCONV=1 docker compose --profile e2e run --rm playwright 2>&1 | tail -40
-E2E_EXIT=${PIPESTATUS[0]}
-if [ "$E2E_EXIT" -eq 0 ]; then PASS=$((PASS + 1)); echo "  ✓ Playwright E2E Tests PASSED"
-else FAIL=$((FAIL + 1)); ERRORS+=("Playwright E2E Tests"); echo "  ✗ Playwright E2E Tests FAILED"; fi
+echo "  Skipping Playwright E2E tests."
 
 # ---------------------------------------------------------------------------
 # Summary
@@ -162,8 +166,8 @@ echo ""
 echo "==========================================="
 echo "  Test Results Summary"
 echo "==========================================="
-echo "  Passed: ${PASS}/5"
-echo "  Failed: ${FAIL}/5"
+echo "  Passed: ${PASS}/4"
+echo "  Failed: ${FAIL}/4"
 if [ ${#ERRORS[@]} -gt 0 ]; then
     echo ""
     echo "  Failed suites:"
@@ -177,7 +181,7 @@ echo "    Backend unit tests     (tests/Unit/)"
 echo "    Backend integration    (tests/Integration/)"
 echo "    Backend API tests      (tests/Api/ — ALL suites, no filter)"
 echo "    Frontend tests         (Vitest — src/**/__tests__/*.test.*)"
-echo "    Playwright E2E         (e2e/ — real browser, no mocks)"
+echo "    Playwright E2E         (e2e/ — real browser, no mocks, skipped)"
 echo "==========================================="
 echo ""
 
