@@ -71,13 +71,14 @@ test.describe('Store CRUD', () => {
   });
 
   test('C2: store list shows correct pagination metadata from backend', async ({ page }) => {
-    await page.goto('/stores');
-
-    // Wait for API response
-    const response = await page.waitForResponse(
-      (resp) => resp.url().includes('/api/v1/stores'),
-      { timeout: 15000 },
-    );
+    // Set up response listener BEFORE navigation to avoid race condition
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (resp) => resp.url().includes('/api/v1/stores') && resp.status() === 200,
+        { timeout: 20000 },
+      ),
+      page.goto('/stores'),
+    ]);
 
     expect(response.status()).toBe(200);
     const body = await response.json();

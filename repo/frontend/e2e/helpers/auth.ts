@@ -41,24 +41,45 @@ export async function loginViaApi(
   page: Page,
   credentials: { username: string; password: string },
 ): Promise<string> {
-  const response = await page.request.post('/api/v1/auth/login', {
-    data: { username: credentials.username, password: credentials.password },
-    headers: { 'Content-Type': 'application/json' },
-  });
-  const body = await response.json();
-  const token: string = body.data.token;
-  const user = body.data.user;
+  // Retry login up to 3 times to handle cold-start proxy/service latency.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await page.request.post('/api/v1/auth/login', {
+        data: { username: credentials.username, password: credentials.password },
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
 
-  // Inject into Zustand persist store that the frontend reads
-  await page.goto('/login');
-  await page.evaluate(
-    ({ token, user }) => {
-      localStorage.setItem(
-        'meridian-auth',
-        JSON.stringify({ state: { token, user, roles: user.roles, isAuthenticated: true }, version: 0 }),
+      if (!response.ok()) {
+        throw new Error(`Login API returned ${response.status()}: ${response.statusText()}`);
+      }
+
+      const body = await response.json();
+      if (!body?.data?.token) {
+        throw new Error(`Login response missing token: ${JSON.stringify(body).slice(0, 200)}`);
+      }
+
+      const token: string = body.data.token;
+      const user = body.data.user;
+
+      // Inject into Zustand persist store that the frontend reads
+      await page.goto('/login');
+      await page.evaluate(
+        ({ token, user }) => {
+          localStorage.setItem(
+            'meridian-auth',
+            JSON.stringify({ state: { token, user, roles: user.roles, isAuthenticated: true }, version: 0 }),
+          );
+        },
+        { token, user },
       );
-    },
-    { token, user },
-  );
-  return token;
+      return token;
+    } catch (err) {
+      lastError = err;
+      // Wait before retry to let services warm up
+      if (attempt < 2) await page.waitForTimeout(2000);
+    }
+  }
+  throw lastError;
 }
