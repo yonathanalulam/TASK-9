@@ -23,6 +23,8 @@ final class HealthAndAuthCoverageTest extends WebTestCase
         $this->client = static::createClient();
     }
 
+    private string $lastCreatedUsername = '';
+
     private function loginAsAdmin(): string
     {
         $container = static::getContainer();
@@ -31,6 +33,7 @@ final class HealthAndAuthCoverageTest extends WebTestCase
 
         self::$counter++;
         $username = 'cov_admin_' . self::$counter . '_' . bin2hex(random_bytes(2));
+        $this->lastCreatedUsername = $username;
 
         $user = new User();
         $user->setUsername($username);
@@ -86,24 +89,106 @@ final class HealthAndAuthCoverageTest extends WebTestCase
         self::assertNull($body['error']);
     }
 
-    public function testChangePasswordEndpointIsRoutable(): void
+    /**
+     * Deep behavior test: the password is actually rotated, the change is
+     * persisted, the old password no longer authenticates, and the new
+     * password does. Replaces a previous shallow status-only check.
+     */
+    public function testChangePasswordRotatesPasswordAndInvalidatesOldCredential(): void
     {
-        $token = $this->loginAsAdmin();
+        ['username' => $username, 'token' => $token] = $this->createAdminAndLogin();
+
+        $newPassword = 'N3w$ecureRotatedP@ss1';
 
         $status = $this->api('POST', '/api/v1/auth/change-password', $token, [
             'current_password' => 'V@lid1Password!',
-            'new_password' => 'N3w$ecurePass!',
+            'new_password' => $newPassword,
         ]);
 
-        self::assertContains($status, [200, 400, 422], 'Expected a handled response');
+        self::assertSame(200, $status, 'Valid change-password call must return exactly 200');
 
         $body = json_decode($this->client->getResponse()->getContent(), true);
-        self::assertArrayHasKey('data', $body);
-        self::assertArrayHasKey('meta', $body);
-        if ($status === 200) {
-            self::assertNull($body['error']);
-        } else {
-            self::assertNotNull($body['error']);
-        }
+        self::assertNull($body['error']);
+        self::assertSame('Password changed successfully.', $body['data']['message']);
+
+        // Old password must no longer authenticate.
+        $this->client->request('POST', '/api/v1/auth/login', [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode(['username' => $username, 'password' => 'V@lid1Password!']));
+        self::assertSame(
+            401,
+            $this->client->getResponse()->getStatusCode(),
+            'Old credential must be rejected after rotation',
+        );
+
+        // New password must authenticate and yield a fresh session token.
+        $this->client->request('POST', '/api/v1/auth/login', [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode(['username' => $username, 'password' => $newPassword]));
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        $loginBody = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertNotEmpty($loginBody['data']['token'] ?? '');
+    }
+
+    public function testChangePasswordRejectsIncorrectCurrentPassword(): void
+    {
+        ['token' => $token] = $this->createAdminAndLogin();
+
+        $status = $this->api('POST', '/api/v1/auth/change-password', $token, [
+            'current_password' => 'WrongPasswordValue!9',
+            'new_password' => 'AnotherV@l1dValue!',
+        ]);
+
+        self::assertSame(400, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame('INVALID_PASSWORD', $body['error']['code']);
+    }
+
+    public function testChangePasswordRejectsWeakNewPasswordWithPolicyError(): void
+    {
+        ['token' => $token] = $this->createAdminAndLogin();
+
+        $status = $this->api('POST', '/api/v1/auth/change-password', $token, [
+            'current_password' => 'V@lid1Password!',
+            'new_password' => 'short',
+        ]);
+
+        self::assertSame(422, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame('PASSWORD_POLICY_VIOLATION', $body['error']['code']);
+    }
+
+    public function testChangePasswordRejectsMissingFieldsWithValidationError(): void
+    {
+        ['token' => $token] = $this->createAdminAndLogin();
+
+        $status = $this->api('POST', '/api/v1/auth/change-password', $token, [
+            'current_password' => '',
+        ]);
+
+        self::assertSame(422, $status);
+        $body = json_decode($this->client->getResponse()->getContent(), true);
+        self::assertSame('VALIDATION_ERROR', $body['error']['code']);
+        self::assertArrayHasKey('current_password', $body['error']['details'] ?? []);
+        self::assertArrayHasKey('new_password', $body['error']['details'] ?? []);
+    }
+
+    public function testChangePasswordRequiresAuthentication(): void
+    {
+        $status = $this->api('POST', '/api/v1/auth/change-password', null, [
+            'current_password' => 'V@lid1Password!',
+            'new_password' => 'AnyN3wV@lue1!Strong',
+        ]);
+
+        self::assertContains($status, [401], 'Anonymous request must be rejected with 401');
+    }
+
+    /**
+     * @return array{username:string, token:string}
+     */
+    private function createAdminAndLogin(): array
+    {
+        $token = $this->loginAsAdmin();
+        return ['username' => $this->lastCreatedUsername, 'token' => $token];
     }
 }

@@ -132,28 +132,82 @@ final class ComplianceEnumValidationTest extends WebTestCase
     // Download route
     // ===================================================================
 
-    public function testDownloadRouteExists(): void
+    /**
+     * Deep behavior: the download endpoint streams the actual generated report
+     * file as an attachment, with the correct content-type, a meaningful
+     * filename, and a JSON body whose contents match the report parameters and
+     * generator. Replaces a previous shallow not-404/not-405 check.
+     */
+    public function testDownloadReturnsAttachmentWithCorrectContentAndFilename(): void
     {
         $token = $this->loginAsComplianceOfficer();
 
-        // First create a report.
         $createResponse = $this->apiRequest('POST', '/api/v1/compliance-reports', $token, [
             'report_type' => 'EXPORT_LOG',
-            'parameters' => [],
+            'parameters' => ['scope' => 'all'],
         ]);
 
-        $createBody = json_decode($createResponse->getContent(), true);
-
-        // Must not skip — if create fails the endpoint is broken and the test should fail loudly.
         self::assertSame(201, $createResponse->getStatusCode(), 'Create compliance report must return 201');
-        self::assertNotEmpty($createBody['data']['id'] ?? '', 'Create must return a report ID');
+        $createBody = json_decode($createResponse->getContent(), true);
+        $id = $createBody['data']['id'] ?? null;
+        self::assertNotEmpty($id, 'Create must return a report ID');
 
-        $id = $createBody['data']['id'];
         $downloadResponse = $this->apiRequest('GET', "/api/v1/compliance-reports/{$id}/download", $token);
 
-        // Should NOT be 404 (route exists) or 405 (method mismatch).
-        self::assertNotSame(404, $downloadResponse->getStatusCode(), 'Download route must exist');
-        self::assertNotSame(405, $downloadResponse->getStatusCode(), 'Download route must accept GET');
+        self::assertSame(200, $downloadResponse->getStatusCode(), 'Download must succeed exactly with 200');
+        self::assertSame('application/json', $downloadResponse->headers->get('Content-Type'));
+
+        $disposition = $downloadResponse->headers->get('Content-Disposition');
+        self::assertNotNull($disposition);
+        self::assertStringContainsString('attachment', $disposition);
+        self::assertStringContainsString('compliance_EXPORT_LOG_', $disposition);
+        self::assertStringContainsString($id, $disposition);
+
+        // Body must be the JSON the controller wrote — verify business fields.
+        // BinaryFileResponse::getContent() returns false; read via the underlying file.
+        $payload = false;
+        if ($downloadResponse instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse) {
+            $payload = file_get_contents($downloadResponse->getFile()->getPathname());
+        } else {
+            $payload = $downloadResponse->getContent();
+        }
+        self::assertIsString($payload);
+        self::assertJson($payload);
+        $decoded = json_decode($payload, true);
+        self::assertSame('EXPORT_LOG', $decoded['report_type']);
+        self::assertSame(['scope' => 'all'], $decoded['parameters']);
+        self::assertNotEmpty($decoded['generated_by']);
+        self::assertNotEmpty($decoded['generated_at']);
+        self::assertArrayHasKey('data', $decoded);
+    }
+
+    public function testDownloadReturns404ForUnknownReportId(): void
+    {
+        $token = $this->loginAsComplianceOfficer();
+
+        // Well-formed UUID that does not exist.
+        $fakeId = '00000000-0000-4000-8000-000000000000';
+        $response = $this->apiRequest('GET', "/api/v1/compliance-reports/{$fakeId}/download", $token);
+
+        self::assertSame(404, $response->getStatusCode());
+        $body = json_decode($response->getContent(), true);
+        self::assertSame('NOT_FOUND', $body['error']['code']);
+    }
+
+    public function testDownloadRequiresAuthentication(): void
+    {
+        // No token — backend must reject before any DB lookup.
+        $response = $this->apiRequest(
+            'GET',
+            '/api/v1/compliance-reports/00000000-0000-4000-8000-000000000000/download',
+            null,
+        );
+
+        self::assertSame(
+            401,
+            $response->getStatusCode(),
+            'Download endpoint must require an authenticated session',
+        );
     }
 
     // ===================================================================

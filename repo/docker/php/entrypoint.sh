@@ -16,12 +16,6 @@ DATABASE_URL="mysql://meridian_app:meridian_secret@mysql:3306/meridian?serverVer
 EOF
 fi
 
-# Install dependencies if vendor/ is missing (cold start)
-if [ ! -d vendor ] || [ ! -f vendor/autoload.php ]; then
-    echo "[entrypoint] Installing Composer dependencies..."
-    composer install --no-interaction --optimize-autoloader
-fi
-
 # Wait for MySQL to be truly ready
 echo "[entrypoint] Waiting for MySQL..."
 for i in $(seq 1 30); do

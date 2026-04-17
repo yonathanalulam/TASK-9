@@ -1,10 +1,12 @@
 services:
   php:
     build:
-      context: ./docker/php
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/php/Dockerfile
     volumes:
       - ./backend:/var/www/backend
+      # Preserve image-installed PHP dependencies under bind-mounted source.
+      - /var/www/backend/vendor
     depends_on:
       mysql:
         condition: service_healthy
@@ -50,24 +52,33 @@ services:
       - meridian
 
   node:
-    image: node:18-alpine
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
     working_dir: /var/www/frontend
     ports:
       - "${VITE_PORT:-5173}:5173"
     volumes:
       - ./frontend:/var/www/frontend
+      # Anonymous volume preserves node_modules installed at image build time
+      # so the host bind mount above does not shadow it.
+      - /var/www/frontend/node_modules
     environment:
       # Use relative URL so Vite proxy forwards API calls to nginx (needed for E2E)
       VITE_API_URL: /api/v1
-    command: sh -c "npm install --force && npm run dev -- --host 0.0.0.0"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
     networks:
       - meridian
 
   playwright:
-    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    build:
+      context: .
+      dockerfile: docker/playwright/Dockerfile
     working_dir: /var/www/frontend
     volumes:
       - ./frontend:/var/www/frontend
+      # Preserve image-installed node_modules (incl. @playwright/test) under the bind mount.
+      - /var/www/frontend/node_modules
     depends_on:
       - node
       - nginx
@@ -78,14 +89,16 @@ services:
       - meridian
     profiles:
       - e2e
-    command: ["sh", "-c", "npm install --force --silent 2>/dev/null && npx playwright install chromium 2>&1 && npx playwright test --config=playwright.config.ts --reporter=list"]
+    command: ["npx", "playwright", "test", "--config=playwright.config.ts", "--reporter=list"]
 
   worker:
     build:
-      context: ./docker/php
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/php/Dockerfile
     volumes:
       - ./backend:/var/www/backend
+      # Preserve image-installed PHP dependencies under bind-mounted source.
+      - /var/www/backend/vendor
     depends_on:
       php:
         condition: service_started
@@ -97,7 +110,7 @@ services:
       APP_SECRET: meridian_local_dev_secret_change_in_prod
       ENCRYPTION_MASTER_KEY: "base64:dGhpcyBpcyBhIGRldmVsb3BtZW50IG1hc3Rlcg=="
     entrypoint: ["bash", "-c"]
-    command: ["cd /var/www/backend && if [ ! -d vendor ]; then composer install --no-interaction; fi && php bin/console messenger:consume async --time-limit=3600 --memory-limit=256M"]
+    command: ["cd /var/www/backend && php bin/console messenger:consume async --time-limit=3600 --memory-limit=256M"]
     restart: unless-stopped
     networks:
       - meridian

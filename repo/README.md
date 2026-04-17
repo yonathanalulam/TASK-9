@@ -21,7 +21,7 @@ A local-network platform for multi-site retail operations, combining offline del
 **Frontend**: React 18 + Vite + TypeScript
 **Database**: MySQL 8.0 (transactional + warehouse schemas)
 **Async**: Symfony Messenger with Doctrine transport (no Redis)
-**Containers**: Docker Compose — php-fpm, nginx, mysql, node, worker
+**Containers**: Docker Compose — php-fpm, nginx, mysql, node, worker (plus a `playwright` E2E profile)
 
 ## Repository Structure
 
@@ -30,6 +30,8 @@ repo/
 ├── docker-compose.yml          # All 5 services
 ├── docker/                     # Dockerfiles and configs
 │   ├── php/Dockerfile          # PHP 8.3-fpm-alpine
+│   ├── node/Dockerfile         # Node 18 + frontend npm deps installed at build
+│   ├── playwright/Dockerfile   # Playwright + frontend deps + Chromium baked in
 │   ├── nginx/conf.d/           # Nginx vhost
 │   └── mysql/conf.d/           # MySQL charset/timezone
 ├── backend/                    # Symfony application
@@ -118,6 +120,23 @@ This script:
 
 The script exits with code 1 if any suite fails.
 
+#### Deterministic, immutable test environment
+
+`run_tests.sh` does **not** install dependencies at runtime. All
+language-level dependencies (`composer install`, `npm ci`, Playwright
+Chromium) are baked into the Docker images at build time:
+
+- Backend PHP deps → installed in `docker/php/Dockerfile`
+- Frontend Node deps → installed in `docker/node/Dockerfile`
+- Playwright + Chromium → installed in `docker/playwright/Dockerfile`
+
+The compose `node` and `playwright` services use a named-volume overlay on
+`/var/www/frontend/node_modules` so the host bind mount cannot shadow the
+image-installed dependencies. If you change `frontend/package.json` or
+`frontend/package-lock.json`, rebuild with `docker compose build node playwright`.
+If you change `backend/composer.lock`, rebuild with `docker compose build php worker`.
+No inline dependency install is performed in the normal start or test path.
+
 ### Test layers
 
 | Layer | Location | Tool | What it tests |
@@ -193,11 +212,15 @@ docker compose --profile e2e run --rm playwright
 
 `run_tests.sh` is designed for a fully cold Docker environment:
 - No assumed warmed caches or pre-run state
-- Builds Docker images if they don't exist
+- Builds Docker images if they don't exist (frontend deps + Chromium are
+  installed during `docker compose build`, not at test runtime)
 - Waits for PHP-FPM, API health, and Vite dev server readiness
 - Creates and migrates the test database from scratch
-- Installs Playwright browsers inside the Docker container
 - Returns exit code 1 if any suite fails
+
+**No runtime package install is performed in any normal start or test
+path.** All `npm ci` / `playwright install` work happens once during the
+image build phase, which is what makes the test environment reproducible.
 
 ## Background Jobs
 

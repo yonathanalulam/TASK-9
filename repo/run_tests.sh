@@ -38,7 +38,7 @@ step "[1/9] Starting Docker services"
 docker compose up -d --build --wait 2>&1 | tail -10
 
 # ---------------------------------------------------------------------------
-# Step 2: Wait for PHP-FPM to finish entrypoint (composer install + migrations)
+# Step 2: Wait for PHP-FPM to finish entrypoint (migrations + warmup)
 # ---------------------------------------------------------------------------
 step "[2/9] Waiting for PHP entrypoint to complete"
 for i in $(seq 1 90); do
@@ -119,8 +119,10 @@ else FAIL=$((FAIL + 1)); ERRORS+=("Backend API Tests"); echo "  ✗ Backend API 
 # Step 8: Frontend unit / component tests (Vitest)
 # ---------------------------------------------------------------------------
 step "[8/9] Running frontend unit and component tests (Vitest)"
+# Dependencies are installed at image build time via docker/node/Dockerfile.
+# No runtime install is performed in the test path — see README "Cold Docker execution".
 MSYS_NO_PATHCONV=1 docker compose exec -T node \
-    sh -c 'cd /var/www/frontend && npm install --force --silent 2>/dev/null && npx vitest run 2>&1' | tail -20
+    sh -c 'cd /var/www/frontend && npx vitest run 2>&1' | tail -20
 FE_EXIT=${PIPESTATUS[0]}
 if [ "$FE_EXIT" -eq 0 ]; then PASS=$((PASS + 1)); echo "  ✓ Frontend Tests (Vitest) PASSED"
 else FAIL=$((FAIL + 1)); ERRORS+=("Frontend Tests (Vitest)"); echo "  ✗ Frontend Tests (Vitest) FAILED"; fi
@@ -137,7 +139,7 @@ else FAIL=$((FAIL + 1)); ERRORS+=("Frontend Tests (Vitest)"); echo "  ✗ Fronte
 # ---------------------------------------------------------------------------
 step "[9/9] Running Playwright E2E tests (no-mock fullstack)"
 
-# Wait for Vite dev server to be ready (cold start: npm install can take 3-5 min)
+# Wait for Vite dev server to be ready (cold start: dev server boot)
 echo "  Waiting for Vite dev server to be ready..."
 for i in $(seq 1 90); do
     if curl -sf http://localhost:5173 > /dev/null 2>&1; then
