@@ -163,7 +163,7 @@ final class SeedDemoDataCommand extends Command
             $assignment->setGrantedBy($adminUser);
 
             if ($ud['scopeRegion'] !== null) {
-                $assignment->setScopeId($regions[$ud['scopeRegion']]->getId()->toBinary());
+                $assignment->setScopeId($regions[$ud['scopeRegion']]->getId()->toRfc4122());
             }
 
             $this->entityManager->persist($assignment);
