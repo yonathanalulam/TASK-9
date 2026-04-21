@@ -187,5 +187,4 @@
 
 ## 9. Final Notes
 - This report is static-only and evidence-based.
-- Compared to the previous cycle, substantial fixes are visible and verified in code.
 - Acceptance is still blocked by remaining High security risk in replay authorization parity and unresolved scope/list behavior gaps.
